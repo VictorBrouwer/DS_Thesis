@@ -18,6 +18,9 @@ from llm_api import LLMInterface
 
 SEED = 2345
 
+# Global DATA variable for problem instance
+DATA = None
+
 @dataclass
 class Data:
     n_jobs: int
