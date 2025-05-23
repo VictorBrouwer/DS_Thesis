@@ -192,31 +192,17 @@ def greedy_repair_then_local_search(state: Solution, rng, **kwargs):
     local_search(state, rng, **kwargs)
     return state
 
-def get_llm_repair_operator(save_to_json=True, load_from_json=True, json_file="llm_repair_operator.json"):
+def get_llm_repair_operator(save_to_json=True, json_file="llm_repair_operator.json"):
     """
     Get a repair operator from the LLM API.
     
     Args:
         save_to_json: Whether to save the LLM response to a JSON file
-        load_from_json: Whether to try loading from a JSON file first
         json_file: Path to the JSON file
         
     Returns:
         The repair operator function code as a string
     """
-    # Try to load from JSON if requested
-    if load_from_json and os.path.exists(json_file):
-        try:
-            with open(json_file, 'r') as f:
-                data = json.load(f)
-                print(f"Loaded LLM response from {json_file}")
-                return data["function_code"]
-        except Exception as e:
-            print(f"Error loading from JSON: {e}")
-    
-    # Otherwise, query the LLM
-    llm = LLMInterface(debug_mode=True)
-    
     prompt = """
     Generate a repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.
     
@@ -254,6 +240,8 @@ def get_llm_repair_operator(save_to_json=True, load_from_json=True, json_file="l
     Only provide the function code, no explanations.
     """
     
+    # Query the LLM
+    llm = LLMInterface(debug_mode=True)
     response = llm.get_response(prompt)
     
     # Extract function code from response
@@ -305,11 +293,24 @@ def create_llm_repair_operator(json_file="llm_repair_operator.json", force_new=T
         A callable function that can be used as a repair operator
     """
     try:
-        function_code = get_llm_repair_operator(
-            save_to_json=True,
-            load_from_json=not force_new,
-            json_file=json_file
-        )
+        # If not forcing new and JSON exists, try to load from it
+        if not force_new and os.path.exists(json_file):
+            try:
+                with open(json_file, 'r') as f:
+                    data = json.load(f)
+                    print(f"Loaded LLM response from {json_file}")
+                    function_code = data["function_code"]
+            except Exception as e:
+                print(f"Error loading from JSON: {e}")
+                function_code = get_llm_repair_operator(
+                    save_to_json=True,
+                    json_file=json_file
+                )
+        else:
+            function_code = get_llm_repair_operator(
+                save_to_json=True,
+                json_file=json_file
+            )
         
         # Create a namespace for execution
         namespace = {}
@@ -323,6 +324,56 @@ def create_llm_repair_operator(json_file="llm_repair_operator.json", force_new=T
         print(f"Error creating LLM repair operator: {e}")
         print("Falling back to greedy_repair_then_local_search")
         return greedy_repair_then_local_search
+
+def evaluate_operator(repair_operator, initial_solution, data_file_path):
+    """
+    Evaluate a repair operator by running ALNS with it.
+    
+    Args:
+        repair_operator: The repair operator function to evaluate
+        initial_solution: The initial solution
+        data_file_path: Path to the data file used
+        
+    Returns:
+        Dictionary with evaluation metrics
+    """
+    print(f"\n=== Evaluating repair operator ===")
+    
+    alns = ALNS(rnd.default_rng(SEED))
+    alns.add_destroy_operator(random_removal)
+    alns.add_destroy_operator(adjacent_removal)
+    alns.add_repair_operator(repair_operator)
+    
+    select = AlphaUCB(
+        scores=[5, 2, 1, 0.5],
+        alpha=0.05,
+        num_destroy=len(alns.destroy_operators),
+        num_repair=len(alns.repair_operators),
+    )
+    
+    ITERS = 600
+    accept = SimulatedAnnealing.autofit(initial_solution.objective(), 0.05, 0.50, ITERS)
+    stop = MaxIterations(ITERS)
+    
+    start_time = time.time()
+    result = alns.iterate(deepcopy(initial_solution), select, accept, stop)
+    runtime = time.time() - start_time
+    
+    final_obj = result.best_state.objective()
+    final_gap = 100 * (final_obj - DATA.bkv) / DATA.bkv
+    
+    print(f"Solution objective: {final_obj}")
+    print(f"Gap to BKV: {final_gap:.2f}%")
+    print(f"Runtime: {runtime:.2f} seconds")
+    
+    return {
+        "objective": final_obj,
+        "gap": final_gap,
+        "runtime": runtime,
+        "data_file": data_file_path,
+        "iterations": ITERS,
+        "best_schedule": result.best_state.schedule
+    }
 
 def NEH(processing_times: np.ndarray) -> Solution:
     """
@@ -355,71 +406,66 @@ if __name__ == "__main__":
     print(f"Initial solution objective: {initial_obj}")
     print(f"Initial gap to BKV: {initial_gap:.2f}%")
     
-    # Run with LLM-generated repair operator
-    print("\n=== Running with LLM-generated repair operator ===")
-    llm_repair = create_llm_repair_operator(
-        json_file="llm_repair_operator.json", 
-        force_new=False  # Set to True to generate a new operator
-    )
+    # Generate and evaluate 4 different LLM repair operators
+    results = []
     
-    alns_llm = ALNS(rnd.default_rng(SEED))
-    alns_llm.add_destroy_operator(random_removal)
-    alns_llm.add_destroy_operator(adjacent_removal)
-    alns_llm.add_repair_operator(llm_repair)
+    for i in range(4):
+        print(f"\n{'='*50}")
+        print(f"Generating and evaluating LLM repair operator {i+1}/4")
+        print(f"{'='*50}")
+        
+        json_file = f"llm_repair_operator_{i+1}.json"
+        
+        # Generate the operator
+        llm_repair = create_llm_repair_operator(
+            json_file=json_file,
+            force_new=True  # Always generate new operators
+        )
+        
+        # Evaluate the operator
+        evaluation = evaluate_operator(llm_repair, init, data_file)
+        results.append(evaluation)
+        
+        # Update the JSON file with evaluation results
+        try:
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+            
+            data["evaluation"] = evaluation
+            
+            with open(json_file, 'w') as f:
+                json.dump(data, f, indent=2)
+                print(f"Updated {json_file} with evaluation results")
+        except Exception as e:
+            print(f"Error updating JSON file: {e}")
     
-    select_llm = AlphaUCB(
-        scores=[5, 2, 1, 0.5],
-        alpha=0.05,
-        num_destroy=len(alns_llm.destroy_operators),
-        num_repair=len(alns_llm.repair_operators),
-    )
+    # Evaluate the original greedy_repair_then_local_search operator for comparison
+    print(f"\n{'='*50}")
+    print(f"Evaluating original repair operator for comparison")
+    print(f"{'='*50}")
     
-    ITERS = 600
-    accept_llm = SimulatedAnnealing.autofit(init.objective(), 0.05, 0.50, ITERS)
-    stop_llm = MaxIterations(ITERS)
+    original_evaluation = evaluate_operator(greedy_repair_then_local_search, init, data_file)
     
-    start_time_llm = time.time()
-    result_llm = alns_llm.iterate(deepcopy(init), select_llm, accept_llm, stop_llm)
-    runtime_llm = time.time() - start_time_llm
+    # Compare all results
+    print(f"\n{'='*50}")
+    print(f"Comparison of all repair operators")
+    print(f"{'='*50}")
     
-    final_obj_llm = result_llm.best_state.objective()
-    final_gap_llm = 100 * (final_obj_llm - DATA.bkv) / DATA.bkv
-    
-    print(f"LLM solution objective: {final_obj_llm}")
-    print(f"LLM gap to BKV: {final_gap_llm:.2f}%")
-    print(f"LLM runtime: {runtime_llm:.2f} seconds")
-    
-    # Run with original greedy_repair_then_local_search operator
-    print("\n=== Running with original repair operator ===")
-    alns_orig = ALNS(rnd.default_rng(SEED))
-    alns_orig.add_destroy_operator(random_removal)
-    alns_orig.add_destroy_operator(adjacent_removal)
-    alns_orig.add_repair_operator(greedy_repair_then_local_search)
-    
-    select_orig = AlphaUCB(
-        scores=[5, 2, 1, 0.5],
-        alpha=0.05,
-        num_destroy=len(alns_orig.destroy_operators),
-        num_repair=len(alns_orig.repair_operators),
-    )
-    
-    accept_orig = SimulatedAnnealing.autofit(init.objective(), 0.05, 0.50, ITERS)
-    stop_orig = MaxIterations(ITERS)
-    
-    start_time_orig = time.time()
-    result_orig = alns_orig.iterate(deepcopy(init), select_orig, accept_orig, stop_orig)
-    runtime_orig = time.time() - start_time_orig
-    
-    final_obj_orig = result_orig.best_state.objective()
-    final_gap_orig = 100 * (final_obj_orig - DATA.bkv) / DATA.bkv
-    
-    print(f"Original solution objective: {final_obj_orig}")
-    print(f"Original gap to BKV: {final_gap_orig:.2f}%")
-    print(f"Original runtime: {runtime_orig:.2f} seconds")
-    
-    # Compare results
-    print("\n=== Comparison ===")
     print(f"Best known value: {DATA.bkv}")
-    print(f"LLM solution: {final_obj_llm} (gap: {final_gap_llm:.2f}%, time: {runtime_llm:.2f}s)")
-    print(f"Original solution: {final_obj_orig} (gap: {final_gap_orig:.2f}%, time: {runtime_orig:.2f}s)")
+    
+    for i, result in enumerate(results):
+        print(f"LLM operator {i+1}: {result['objective']} (gap: {result['gap']:.2f}%, time: {result['runtime']:.2f}s)")
+    
+    print(f"Original operator: {original_evaluation['objective']} (gap: {original_evaluation['gap']:.2f}%, time: {original_evaluation['runtime']:.2f}s)")
+    
+    # Find the best operator
+    best_llm_idx = min(range(len(results)), key=lambda i: results[i]['objective'])
+    best_llm = results[best_llm_idx]
+    
+    print(f"\nBest LLM operator: #{best_llm_idx+1} with objective {best_llm['objective']} (gap: {best_llm['gap']:.2f}%)")
+    print(f"vs. Original operator: {original_evaluation['objective']} (gap: {original_evaluation['gap']:.2f}%)")
+    
+    # Calculate improvement
+    improvement = (original_evaluation['objective'] - best_llm['objective']) / original_evaluation['objective'] * 100
+    print(f"Improvement: {improvement:.2f}%")
     
