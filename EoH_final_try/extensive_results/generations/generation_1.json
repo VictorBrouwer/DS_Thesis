@@ -1,0 +1,60 @@
+{
+  "generation": 1,
+  "timestamp": "2025-05-23 16:29:05",
+  "problem_file": "data/j50_m20/j50_m20_01.txt",
+  "best_known_value": 3875,
+  "population_size": 5,
+  "population": [
+    {
+      "algorithm": "Initial PFSP repair operator generated from scratch",
+      "code": "def llm_repair(state, rng, **kwargs):\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts the unassigned jobs back into the solution in a smart way to minimize the makespan.\n    \"\"\"\n    unassigned_jobs = state.unassigned[:]  # Copy the list to avoid modifying the original\n    rng.shuffle(unassigned_jobs)  # Shuffle unassigned jobs to introduce some randomness\n    \n    for job in unassigned_jobs:\n        state.opt_insert(job)\n\n    state.unassigned = []  # Clear the unassigned list after inserting all jobs\n\n    return state",
+      "objective": 3935,
+      "gap": 1.5483870967741935,
+      "runtime": 2.9742071628570557,
+      "timestamp": "2025-05-23 16:28:16",
+      "feasible": true
+    },
+    {
+      "algorithm": "Hybrid algorithm combining ideas from parent operators",
+      "code": "def llm_repair(state: 'Solution', rng, **kwargs) -> 'Solution':\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts the unassigned jobs back into the solution in a smart way,\n    trying to minimize the makespan.\n\n    Args:\n        state: The current solution.\n        rng: A numpy.random.Generator object for random operations.\n        **kwargs: Additional keyword arguments (not used).\n\n    Returns:\n        The modified solution.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]  # Copy the unassigned jobs\n    rng.shuffle(unassigned_jobs)\n\n    # 1. Insert the unassigned jobs back into the schedule\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n    \n    state.unassigned = []\n\n    return state",
+      "objective": 3935,
+      "gap": 1.5483870967741935,
+      "runtime": 2.998051881790161,
+      "timestamp": "2025-05-23 16:28:26",
+      "feasible": true,
+      "strategy": "e2",
+      "generation": 1
+    },
+    {
+      "algorithm": "New algorithm inspired by existing approaches but with different logic",
+      "code": "def llm_repair(state: 'Solution', rng, **kwargs) -> 'Solution':\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts the unassigned jobs back into the solution in a smart way,\n    trying to minimize the makespan by inserting them based on their average processing time.\n\n    Args:\n        state: The current solution.\n        rng: A numpy.random.Generator object for random operations.\n        **kwargs: Additional keyword arguments (not used).\n\n    Returns:\n        The modified solution.\n    \"\"\"\n    unassigned_jobs = state.unassigned[:]\n\n    # Calculate the average processing time for each unassigned job\n    job_avg_processing_times = {}\n    for job in unassigned_jobs:\n        job_avg_processing_times[job] = np.mean(DATA.processing_times[:, job])\n\n    # Sort unassigned jobs based on their average processing time in descending order\n    sorted_unassigned_jobs = sorted(unassigned_jobs, key=lambda job: job_avg_processing_times[job], reverse=True)\n\n    # Insert the unassigned jobs back into the schedule\n    for job in sorted_unassigned_jobs:\n        state.opt_insert(job)\n        state.unassigned.remove(job)\n        \n    return state",
+      "objective": 3943,
+      "gap": 1.7548387096774194,
+      "runtime": 2.9999282360076904,
+      "timestamp": "2025-05-23 16:28:21",
+      "feasible": true,
+      "strategy": "e1",
+      "generation": 1
+    },
+    {
+      "algorithm": "Modified version of: Initial PFSP repair operator generated from scratch",
+      "code": "def llm_repair(state, rng, **kwargs):\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts the unassigned jobs back into the solution in a smart way to minimize the makespan.\n    \"\"\"\n    unassigned_jobs = state.unassigned[:]  # Copy the list to avoid modifying the original\n\n    # Sort unassigned jobs based on their total processing time\n    job_processing_times = {}\n    for job in unassigned_jobs:\n        job_processing_times[job] = np.sum(DATA.processing_times[:, job])\n\n    sorted_unassigned_jobs = sorted(unassigned_jobs, key=lambda job: job_processing_times[job], reverse=True)\n\n    for job in sorted_unassigned_jobs:\n        best_idx = -1\n        best_makespan = float('inf')\n        \n        # Try inserting at all possible positions\n        for idx in range(len(state.schedule) + 1):\n            temp_schedule = state.schedule[:]\n            temp_schedule.insert(idx, job)\n            \n            makespan = compute_makespan(temp_schedule)\n            \n            if makespan < best_makespan:\n                best_makespan = makespan\n                best_idx = idx\n\n        # Insert the job at the best position found\n        state.schedule.insert(best_idx, job)\n\n    state.unassigned = []  # Clear the unassigned list after inserting all jobs\n\n    return state",
+      "objective": 3967,
+      "gap": 2.3741935483870966,
+      "runtime": 29.931993007659912,
+      "timestamp": "2025-05-23 16:28:31",
+      "feasible": true,
+      "strategy": "m1",
+      "generation": 1
+    },
+    {
+      "algorithm": "Initial PFSP repair operator generated from scratch",
+      "code": "def llm_repair(state: 'Solution', rng, **kwargs) -> 'Solution':\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts the unassigned jobs back into the solution in a smart way,\n    trying to minimize the makespan.\n\n    Args:\n        state: The current solution.\n        rng: A numpy.random.Generator object for random operations.\n        **kwargs: Additional keyword arguments (not used).\n\n    Returns:\n        The modified solution.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]  # Copy the unassigned jobs\n\n    # 1. Insert the unassigned jobs back into the schedule\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n        state.unassigned.remove(job)\n\n    return state",
+      "objective": 3983,
+      "gap": 2.7870967741935484,
+      "runtime": 2.936781167984009,
+      "timestamp": "2025-05-23 16:28:07",
+      "feasible": true
+    }
+  ]
+}
