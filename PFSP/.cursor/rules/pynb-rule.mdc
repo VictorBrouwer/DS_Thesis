@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+do not try to edit python notebooks (.ipynb), just give me the update code with python notebooks
