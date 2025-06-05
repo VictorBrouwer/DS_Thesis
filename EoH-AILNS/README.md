@@ -5,7 +5,7 @@ An Evolution of Heuristics framework for automatically generating and evolving A
 ## Overview
 
 This project implements an EoH-ALNS framework that:
-- Generates ALNS operators (destroy and repair) using LLMs
+- Generates ALNS repair operators using LLMs
 - Evolves operators through multiple evolution strategies
 - Supports both PFSP and PCTSP optimization problems
 - Evaluates and stores results in JSON format
