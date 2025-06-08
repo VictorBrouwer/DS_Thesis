@@ -1,0 +1,9 @@
+{
+  "algorithm": "Initial PFSP repair operator generated from scratch",
+  "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    unassigned_jobs = state.unassigned[:]  # Create a copy to avoid modifying original\n    rng.shuffle(unassigned_jobs) #Randomize the order\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n    state.unassigned = []\n    return state",
+  "objective": 5804,
+  "gap": 0.5892547660311959,
+  "runtime": 3.0580508708953857,
+  "timestamp": "2025-06-06 19:08:50",
+  "feasible": true
+}

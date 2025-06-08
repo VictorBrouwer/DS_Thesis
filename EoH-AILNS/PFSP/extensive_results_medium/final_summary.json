@@ -1,0 +1,61 @@
+{
+  "total_runtime": 390.28119802474976,
+  "generations": 4,
+  "population_size": 5,
+  "problem_file": "data/j50_m20/j50_m20_01.txt",
+  "best_known_value": 3875,
+  "best_objective": 3935,
+  "best_gap": 1.5483870967741935,
+  "initial_objective": 4082,
+  "final_population": [
+    {
+      "algorithm": "Initial PFSP repair operator generated from scratch",
+      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts unassigned jobs back into the solution in a smart way to minimize the makespan.\n\n    Args:\n        state (Solution): The current solution.\n        rng: numpy.random.Generator object for random operations.\n\n    Returns:\n        Solution: The modified solution.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]\n    rng.shuffle(unassigned_jobs)  # Shuffle the unassigned jobs\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)  # Optimally insert each job\n        \n    state.unassigned = []\n\n    return state",
+      "objective": 3935,
+      "gap": 1.5483870967741935,
+      "runtime": 3.0092742443084717,
+      "timestamp": "2025-06-06 19:01:21",
+      "feasible": true
+    },
+    {
+      "algorithm": "Initial PFSP repair operator generated from scratch",
+      "code": "def llm_repair(state: 'Solution', rng, **kwargs) -> 'Solution':\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts the unassigned jobs back into the solution in a smart way,\n    trying to minimize the makespan.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]\n    rng.shuffle(unassigned_jobs)  # Shuffle unassigned jobs for some randomness\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n        \n    state.unassigned = []\n    return state",
+      "objective": 3935,
+      "gap": 1.5483870967741935,
+      "runtime": 2.9964520931243896,
+      "timestamp": "2025-06-06 19:01:32",
+      "feasible": true
+    },
+    {
+      "algorithm": "Initial PFSP repair operator generated from scratch",
+      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Args:\n        state (Solution): The current solution.\n        rng: numpy.random.Generator object for random number generation.\n\n    Returns:\n        Solution: The modified solution.\n    \"\"\"\n    unassigned_jobs = state.unassigned[:]\n    rng.shuffle(unassigned_jobs)\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n    state.unassigned = []\n    return state",
+      "objective": 3935,
+      "gap": 1.5483870967741935,
+      "runtime": 2.9856131076812744,
+      "timestamp": "2025-06-06 19:01:53",
+      "feasible": true
+    },
+    {
+      "algorithm": "Hybrid algorithm combining ideas from parent operators",
+      "code": "def llm_repair(state: 'Solution', rng, **kwargs) -> 'Solution':\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts the unassigned jobs back into the solution in a smart way,\n    trying to minimize the makespan.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]\n    rng.shuffle(unassigned_jobs)  # Shuffle unassigned jobs for some randomness\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n        \n    state.unassigned = []\n    return state",
+      "objective": 3935,
+      "gap": 1.5483870967741935,
+      "runtime": 2.9460649490356445,
+      "timestamp": "2025-06-06 19:02:29",
+      "feasible": true,
+      "strategy": "e2",
+      "generation": 1
+    },
+    {
+      "algorithm": "Hybrid algorithm combining ideas from parent operators",
+      "code": "def llm_repair(state: 'Solution', rng, **kwargs) -> 'Solution':\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts the unassigned jobs back into the solution in a smart way,\n    trying to minimize the makespan.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]\n    rng.shuffle(unassigned_jobs)  # Shuffle unassigned jobs for some randomness\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n        \n    state.unassigned = []\n    return state",
+      "objective": 3935,
+      "gap": 1.5483870967741935,
+      "runtime": 3.09126615524292,
+      "timestamp": "2025-06-06 19:02:53",
+      "feasible": true,
+      "strategy": "e2",
+      "generation": 2
+    }
+  ]
+}

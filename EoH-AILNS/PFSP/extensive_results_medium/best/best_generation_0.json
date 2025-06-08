@@ -1,0 +1,9 @@
+{
+  "algorithm": "Initial PFSP repair operator generated from scratch",
+  "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts unassigned jobs back into the solution in a smart way to minimize the makespan.\n\n    Args:\n        state (Solution): The current solution.\n        rng: numpy.random.Generator object for random operations.\n\n    Returns:\n        Solution: The modified solution.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]\n    rng.shuffle(unassigned_jobs)  # Shuffle the unassigned jobs\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)  # Optimally insert each job\n        \n    state.unassigned = []\n\n    return state",
+  "objective": 3935,
+  "gap": 1.5483870967741935,
+  "runtime": 3.0092742443084717,
+  "timestamp": "2025-06-06 19:01:21",
+  "feasible": true
+}

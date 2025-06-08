@@ -1,0 +1,55 @@
+{
+  "generation": 0,
+  "timestamp": "2025-06-06 19:01:10",
+  "problem_file": "data/j20_m10/j20_m10_01.txt",
+  "best_known_value": 1582,
+  "population_size": 5,
+  "population": [
+    {
+      "algorithm": "Initial PFSP repair operator generated from scratch",
+      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts unassigned jobs back into the solution to minimize makespan.\n    \"\"\"\n\n    jobs_to_insert = state.unassigned[:]  # Create a copy to avoid modifying original\n    \n    for job in jobs_to_insert:\n        state.opt_insert(job)  # Optimally insert each unassigned job\n        \n    state.unassigned = []  # Clear unassigned jobs after insertion\n    \n    return state",
+      "objective": 1593,
+      "gap": 0.695322376738306,
+      "runtime": 0.6116490364074707,
+      "timestamp": "2025-06-06 19:01:07",
+      "feasible": true
+    },
+    {
+      "algorithm": "Initial PFSP repair operator generated from scratch",
+      "code": "def llm_repair(state, rng, **kwargs):\n    \"\"\"\n    Repairs the solution by re-inserting unassigned jobs in a smart way,\n    attempting to minimize makespan.\n\n    Args:\n        state: The current solution (Solution object).\n        rng: A numpy.random.Generator object for random operations.\n        **kwargs: Additional keyword arguments (unused).\n\n    Returns:\n        The repaired solution (Solution object).\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]  # Create a copy to iterate over\n\n    # Option 1: Greedy insertion (insert each job at its best position)\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n\n    state.unassigned = []\n\n    return state",
+      "objective": 1593,
+      "gap": 0.695322376738306,
+      "runtime": 0.5967490673065186,
+      "timestamp": "2025-06-06 19:01:09",
+      "feasible": true
+    },
+    {
+      "algorithm": "Initial PFSP repair operator generated from scratch",
+      "code": "def llm_repair(state, rng, **kwargs):\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Args:\n        state (Solution): The current solution.\n        rng: numpy.random.Generator object for random operations.\n\n    Returns:\n        Solution: The repaired solution.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned.copy()\n    rng.shuffle(unassigned_jobs)  # Shuffle to add some randomness\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)  # Optimally insert each unassigned job\n\n    state.unassigned = [] # Reset unassigned jobs\n\n    return state",
+      "objective": 1598,
+      "gap": 1.011378002528445,
+      "runtime": 0.6364622116088867,
+      "timestamp": "2025-06-06 19:01:05",
+      "feasible": true
+    },
+    {
+      "algorithm": "Initial PFSP repair operator generated from scratch",
+      "code": "def llm_repair(state: \"Solution\", rng, **kwargs) -> \"Solution\":\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    This operator inserts the unassigned jobs back into the solution in a smart way,\n    trying to minimize the makespan.\n\n    Args:\n        state: The current solution.\n        rng: A numpy.random.Generator object for random operations.\n        kwargs: Additional keyword arguments.\n\n    Returns:\n        The modified solution.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned.copy()\n\n    # Sort unassigned jobs randomly\n    rng.shuffle(unassigned_jobs)\n\n    # Re-insert the unassigned jobs one by one, choosing the best position\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n\n    return state",
+      "objective": 1667,
+      "gap": 5.372945638432364,
+      "runtime": 1.519521951675415,
+      "timestamp": "2025-06-06 19:01:02",
+      "feasible": true
+    },
+    {
+      "algorithm": "Initial PFSP repair operator generated from scratch",
+      "code": "import numpy as np\nimport copy\n\ndef llm_repair(state: \"Solution\", rng, **kwargs) -> \"Solution\":\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    This operator re-inserts unassigned jobs back into the solution, attempting to minimize makespan.\n\n    Args:\n        state (Solution): The current solution.\n        rng: The random number generator.\n        **kwargs: Additional keyword arguments (not used).\n\n    Returns:\n        Solution: The repaired solution.\n    \"\"\"\n\n    new_state = copy.deepcopy(state)\n\n    # Re-insert unassigned jobs\n    for job in new_state.unassigned:\n        new_state.opt_insert(job)\n        \n    new_state.unassigned = []\n\n    return new_state",
+      "objective": 3164,
+      "gap": 100.0,
+      "runtime": 0.0,
+      "timestamp": "2025-06-06 19:01:00",
+      "feasible": false,
+      "error": "name 'copy' is not defined"
+    }
+  ]
+}
