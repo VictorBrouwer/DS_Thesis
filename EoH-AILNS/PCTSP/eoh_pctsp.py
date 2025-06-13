@@ -4,6 +4,8 @@ import time
 import re
 import numpy as np
 import sys
+import signal
+from functools import wraps
 from copy import deepcopy
 from typing import List, Dict, Any
 
@@ -16,11 +18,32 @@ from pctsp_prompts import GetPCTSPPrompts
 import PCTSP
 from PCTSP import (
     PCTSPSolution, PCTSPData, construct_initial_solution, evaluate_operator,
-    random_removal, worst_removal, greedy_repair, load_instances
+    random_removal, adjacent_removal, greedy_repair, load_instances, load_training_instances
 )
 
 # Global DATA variable
 DATA = None
+
+def timeout(seconds):
+    """Timeout decorator"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            def handler(signum, frame):
+                raise TimeoutError(f"Function timed out after {seconds} seconds")
+            
+            # Set the signal handler and a timeout
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                # Disable the alarm
+                signal.alarm(0)
+            return result
+        return wrapper
+    return decorator
 
 class EoH_PCTSP:
     """Evolution of Heuristics framework for PCTSP repair operators"""
@@ -62,13 +85,17 @@ class EoH_PCTSP:
             prompts=self.prompts
         )
         
-        # Load problem instances (use only first max_instances)
-        self.instances = load_instances(problem_size)[:max_instances]
-        if not self.instances:
-            raise ValueError(f"No instances found for problem size {problem_size}")
+        # Load training instances (use only first max_instances)
+        try:
+            self.instances = load_training_instances(problem_size)[:max_instances]
+            if not self.instances:
+                raise ValueError(f"No training instances found for problem size {problem_size}")
+        except Exception as e:
+            print(f"Error loading training instances: {e}")
+            raise
         
-        print(f"Initialized EoH-PCTSP for {len(self.instances)} instances of size {problem_size}")
-        print(f"Using instances: {[inst.instance_id for inst in self.instances]}")
+        print(f"Initialized EoH-PCTSP for {len(self.instances)} training instances of size {problem_size}")
+        print(f"Using training instances: {[inst.instance_id for inst in self.instances]}")
         
         # Set the first instance as the primary one for evaluation
         self.primary_instance = self.instances[0]
@@ -79,12 +106,24 @@ class EoH_PCTSP:
         DATA = self.primary_instance
         
         # Create initial solution for the primary instance
-        self.initial_solution = construct_initial_solution(use_greedy=True)
+        try:
+            self.initial_solution = construct_initial_solution(use_greedy=True)
+        except Exception as e:
+            print(f"Error creating initial solution: {e}")
+            raise
         
         print(f"Primary instance: {self.primary_instance.size} nodes")
         print(f"Initial solution objective: {self.initial_solution.objective():.2f}")
         print(f"Initial solution feasible: {self.initial_solution.is_feasible()}")
-        
+    
+    @timeout(30)  # 30 second timeout for operator evaluation
+    def _evaluate_operator_on_instance(self, operator_func, instance, init_solution, instance_name):
+        """Evaluate operator on a single instance with timeout"""
+        PCTSP.DATA = instance
+        global DATA
+        DATA = instance
+        return evaluate_operator(operator_func, deepcopy(init_solution), instance_name)
+    
     def create_operator_from_code(self, code_str: str, algorithm_desc: str) -> Dict[str, Any]:
         """Create an operator dictionary from LLM-generated code"""
         
@@ -99,31 +138,98 @@ class EoH_PCTSP:
             'gap': None,
             'runtime': None,
             'timestamp': time.strftime("%Y-%m-%d %H:%M:%S"),
-            'feasible': False
+            'feasible': False,
+            'instance1_objective': None,
+            'instance2_objective': None,
+            'instance1_gap': None,
+            'instance2_gap': None,
+            'instance1_feasible': None,
+            'instance2_feasible': None
         }
         
         # Try to create and evaluate the operator
         try:
-            # Create namespace using globals() like the original
+            # Create namespace using globals()
             namespace = {}
             exec(function_code, globals(), namespace)
             
             if 'llm_repair' in namespace:
                 operator_func = namespace['llm_repair']
                 
-                # Evaluate the operator on the primary instance
-                evaluation = evaluate_operator(operator_func, deepcopy(self.initial_solution), "primary_instance")
+                try:
+                    # Evaluate on first instance with timeout
+                    init_solution1 = construct_initial_solution(use_greedy=True)
+                    evaluation1 = self._evaluate_operator_on_instance(
+                        operator_func, self.instances[0], init_solution1, "instance1"
+                    )
+                except TimeoutError:
+                    print("Instance 1 evaluation timed out after 30 seconds")
+                    evaluation1 = {
+                        'objective': self.initial_solution.objective() * 2,
+                        'gap': 100.0,
+                        'runtime': 30.0,
+                        'feasible': False
+                    }
                 
+                try:
+                    # Evaluate on second instance with timeout
+                    init_solution2 = construct_initial_solution(use_greedy=True)
+                    evaluation2 = self._evaluate_operator_on_instance(
+                        operator_func, self.instances[1], init_solution2, "instance2"
+                    )
+                except TimeoutError:
+                    print("Instance 2 evaluation timed out after 30 seconds")
+                    evaluation2 = {
+                        'objective': self.initial_solution.objective() * 2,
+                        'gap': 100.0,
+                        'runtime': 30.0,
+                        'feasible': False
+                    }
+                
+                # Store individual instance results
                 individual.update({
-                    'objective': float(evaluation['objective']),
-                    'gap': float(evaluation['gap']),
-                    'runtime': float(evaluation['runtime']),
-                    'feasible': evaluation['feasible'],
-                    'tour_length': evaluation.get('tour_length', 0),
-                    'prize_collected': evaluation.get('prize_collected', 0)
+                    'instance1_objective': float(evaluation1['objective']),
+                    'instance2_objective': float(evaluation2['objective']),
+                    'instance1_gap': float(evaluation1['gap']),
+                    'instance2_gap': float(evaluation2['gap']),
+                    'instance1_feasible': evaluation1['feasible'],
+                    'instance2_feasible': evaluation2['feasible']
                 })
                 
-                print(f"Created operator - Objective: {evaluation['objective']:.2f}, Gap: {evaluation['gap']:.2f}%, Feasible: {evaluation['feasible']}")
+                # Print individual results
+                print(f"\nInstance 1 Results:")
+                print(f"  Objective: {evaluation1['objective']:.2f}")
+                print(f"  Gap: {evaluation1['gap']:.2f}%")
+                print(f"  Feasible: {evaluation1['feasible']}")
+                print(f"  Runtime: {evaluation1['runtime']:.1f}s")
+                
+                print(f"\nInstance 2 Results:")
+                print(f"  Objective: {evaluation2['objective']:.2f}")
+                print(f"  Gap: {evaluation2['gap']:.2f}%")
+                print(f"  Feasible: {evaluation2['feasible']}")
+                print(f"  Runtime: {evaluation2['runtime']:.1f}s")
+                
+                # Combine objectives (sum of both instances)
+                combined_objective = evaluation1['objective'] + evaluation2['objective']
+                combined_gap = (evaluation1['gap'] + evaluation2['gap']) / 2
+                combined_runtime = evaluation1['runtime'] + evaluation2['runtime']
+                combined_feasible = evaluation1['feasible'] and evaluation2['feasible']
+                
+                # Update combined results
+                individual.update({
+                    'objective': float(combined_objective),
+                    'gap': float(combined_gap),
+                    'runtime': float(combined_runtime),
+                    'feasible': combined_feasible,
+                    'tour_length': evaluation1.get('tour_length', 0) + evaluation2.get('tour_length', 0),
+                    'prize_collected': evaluation1.get('prize_collected', 0) + evaluation2.get('prize_collected', 0)
+                })
+                
+                print(f"\nCombined Results:")
+                print(f"  Total Objective: {combined_objective:.2f}")
+                print(f"  Average Gap: {combined_gap:.2f}%")
+                print(f"  Both Feasible: {combined_feasible}")
+                print(f"  Total Runtime: {combined_runtime:.1f}s")
                 
             else:
                 print("Error: 'llm_repair' function not found in generated code")
@@ -132,10 +238,16 @@ class EoH_PCTSP:
             print(f"Error creating operator: {e}")
             # Set default poor performance for infeasible operators
             individual.update({
-                'objective': float(self.initial_solution.objective() * 2),
+                'objective': float(self.initial_solution.objective() * 4),  # Doubled since we sum two instances
                 'gap': 100.0,
                 'runtime': 0.0,
                 'feasible': False,
+                'instance1_objective': float(self.initial_solution.objective() * 2),
+                'instance2_objective': float(self.initial_solution.objective() * 2),
+                'instance1_gap': 100.0,
+                'instance2_gap': 100.0,
+                'instance1_feasible': False,
+                'instance2_feasible': False,
                 'error': str(e)
             })
             

@@ -1,0 +1,43 @@
+{
+  "timestamp": "20250610_153905",
+  "total_instances": 60,
+  "problem_sizes": [
+    20,
+    50,
+    100
+  ],
+  "overall_performance": {
+    "initial_avg_objective": 7.070450808030582,
+    "eoh_avg_objective": 4.821763449267631,
+    "avg_improvement": 2.2486873587629512,
+    "improvement_rate": 100.0,
+    "eoh_feasible_rate": 100.0,
+    "avg_runtime": 63.60987867911657
+  },
+  "by_problem_size": {
+    "20": {
+      "instances": 20,
+      "initial_avg_objective": 4.936236859955829,
+      "eoh_avg_objective": 3.3341321521692486,
+      "avg_improvement": 1.6021047077865813,
+      "improvement_rate": 100.0,
+      "feasible_rate": 100.0
+    },
+    "50": {
+      "instances": 20,
+      "initial_avg_objective": 6.963849740598848,
+      "eoh_avg_objective": 4.709807532805991,
+      "avg_improvement": 2.254042207792856,
+      "improvement_rate": 100.0,
+      "feasible_rate": 100.0
+    },
+    "100": {
+      "instances": 20,
+      "initial_avg_objective": 9.311265823537074,
+      "eoh_avg_objective": 6.4213506628276535,
+      "avg_improvement": 2.8899151607094167,
+      "improvement_rate": 100.0,
+      "feasible_rate": 100.0
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "algorithm": "Initial PCTSP repair operator generated from scratch",
+  "code": "def llm_repair(state: 'PCTSPSolution', rng, **kwargs) -> 'PCTSPSolution':\n    \"\"\"\n    Repair operator for the Price Collecting Travelling Salesman Problem (PCTSP) using ALNS.\n    \"\"\"\n    unvisited = state.unvisited[:]\n    rng.shuffle(unvisited)\n\n    while unvisited:\n        node = unvisited.pop()\n        state.opt_insert(node)\n\n    # Ensure feasibility\n    while not state.is_feasible():\n        # Remove node with the lowest prize-to-cost ratio\n        worst_node = None\n        worst_ratio = float('inf')\n        for node in state.tour:\n            prize = DATA.prizes[node]\n            idx = state.tour.index(node)\n            if len(state.tour) > 1:\n                prev_node = state.tour[idx - 1] if idx > 0 else state.tour[-1]\n                next_node = state.tour[idx + 1] if idx < len(state.tour) - 1 else state.tour[0]\n                cost = np.linalg.norm(DATA.locations[node] - DATA.locations[prev_node]) + \\\n                       np.linalg.norm(DATA.locations[node] - DATA.locations[next_node])\n            else:\n                cost = 2 * np.linalg.norm(DATA.locations[node] - DATA.depot)\n\n            ratio = prize / cost if cost > 0 else float('inf')\n            if ratio < worst_ratio:\n                worst_ratio = ratio\n                worst_node = node\n\n        if worst_node is not None:\n            state.remove(worst_node)\n            state.unvisited.append(worst_node)\n\n    return state",
+  "objective": 11.983164989648794,
+  "gap": -19.222074467391323,
+  "runtime": 60.01540207862854,
+  "timestamp": "2025-06-13 14:17:23",
+  "feasible": true,
+  "instance1_objective": 6.139665849104915,
+  "instance2_objective": 5.843499140543878,
+  "instance1_gap": -23.59255107325255,
+  "instance2_gap": -14.851597861530093,
+  "instance1_feasible": true,
+  "instance2_feasible": true,
+  "tour_length": 100,
+  "prize_collected": 3.633595960144199
+}

@@ -13,10 +13,10 @@ def main():
     parser = argparse.ArgumentParser(description='Run Evolution of Heuristics for PCTSP')
     
     # EoH parameters
-    parser.add_argument('--pop_size', type=int, default=4, 
-                        help='Population size (default: 4)')
-    parser.add_argument('--generations', type=int, default=3, 
-                        help='Number of generations (default: 3)')
+    parser.add_argument('--pop_size', type=int, default=5, 
+                        help='Population size (default: 5)')
+    parser.add_argument('--generations', type=int, default=4, 
+                        help='Number of generations (default: 4)')
     parser.add_argument('--problem_size', type=int, default=20, choices=[20, 50, 100],
                         help='Problem size: 20, 50, or 100 nodes (default: 20)')
     parser.add_argument('--max_instances', type=int, default=2,

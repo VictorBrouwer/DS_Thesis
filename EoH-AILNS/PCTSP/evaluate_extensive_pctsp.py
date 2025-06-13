@@ -22,7 +22,7 @@ from PCTSP import (
 from alns import ALNS
 from alns.accept import SimulatedAnnealing
 from alns.select import AlphaUCB
-from alns.stop import MaxIterations
+from alns.stop import MaxIterations, MaxRuntime
 
 # Global variables
 SEED = 2345
@@ -48,49 +48,18 @@ def load_best_eoh_operator():
     exec(operator_code, globals(), namespace)
     return namespace["llm_repair"], best_individual
 
-def create_baseline_repair():
-    """Create baseline repair operator"""
-    def baseline_repair(state: PCTSPSolution, rng, **kwargs) -> PCTSPSolution:
-        """Baseline greedy repair - sorts by prize-to-penalty ratio"""
-        if not state.unvisited:
-            return state
-        
-        # Sort unvisited nodes by prize-to-penalty ratio
-        ratios = []
-        for node in state.unvisited:
-            ratio = DATA.prizes[node] / (DATA.penalties[node] + 1e-6)
-            ratios.append((node, ratio))
-        
-        # Sort by decreasing ratio (best first)
-        ratios.sort(key=lambda x: x[1], reverse=True)
-        
-        # Insert nodes until feasible or all inserted
-        for node, _ in ratios:
-            if node in state.unvisited:
-                state.opt_insert(node)
-                if state.is_feasible():
-                    break
-        
-        # If still not feasible, insert remaining nodes
-        while state.unvisited and not state.is_feasible():
-            node = state.unvisited[0]
-            state.opt_insert(node)
-        
-        return state
-    return baseline_repair
+
 
 def run_extensive_evaluation():
     """Run evaluation on all PCTSP instances"""
     
-    print("🔬 Extensive Evaluation on All PCTSP Instances")
+    print("🔬 Extensive EoH Evaluation on All PCTSP Instances")
     print("=" * 60)
     
-    # Load operators
+    # Load EoH operator
     eoh_operator, eoh_info = load_best_eoh_operator()
     if eoh_operator is None:
         return None
-        
-    baseline_operator = create_baseline_repair()
     
     print(f"EoH Operator: {eoh_info['algorithm']}")
     print(f"Training Gap: {eoh_info['gap']:.2f}%")
@@ -111,8 +80,8 @@ def run_extensive_evaluation():
         print("❌ No instances found!")
         return None
     
-    print(f"\nTesting on {len(all_instances)} total instances...")
-    print("Estimated time: 15-30 minutes")
+    print(f"\nTesting EoH operator on {len(all_instances)} total instances...")
+    print("Estimated time: 10-20 minutes")
     print()
     
     # Store results
@@ -121,23 +90,19 @@ def run_extensive_evaluation():
         'problem_size': [],
         'n_nodes': [],
         'total_prize_required': [],
+        'initial_objective': [],
         'eoh_objective': [],
-        'eoh_gap_vs_baseline': [],
+        'eoh_improvement': [],
         'eoh_time': [],
         'eoh_feasible': [],
         'eoh_tour_length': [],
-        'eoh_prize_collected': [],
-        'baseline_objective': [],
-        'baseline_time': [],
-        'baseline_feasible': [],
-        'baseline_tour_length': [],
-        'baseline_prize_collected': []
+        'eoh_prize_collected': []
     }
     
     start_time = time.time()
     
     for i, (size, instance) in enumerate(all_instances):
-        if i % 10 == 0:
+        if i % 10 == 0 and i > 0:
             elapsed = time.time() - start_time
             print(f"Progress: {i}/{len(all_instances)} instances completed ({elapsed/60:.1f} min elapsed)")
         
@@ -154,162 +119,191 @@ def run_extensive_evaluation():
         
         # Create initial solution
         init_solution = construct_initial_solution(use_greedy=True)
+        results['initial_objective'].append(init_solution.objective())
         
-        # Test both operators
-        for op_name, operator_func in [('eoh', eoh_operator), ('baseline', baseline_operator)]:
-            try:
-                # Setup ALNS
-                alns = ALNS(rnd.default_rng(SEED))
-                alns.add_destroy_operator(random_removal)
-                alns.add_destroy_operator(worst_removal)
-                alns.add_repair_operator(operator_func)
-                
-                # Configure ALNS
-                select = AlphaUCB(
-                    scores=[5, 2, 1, 0.5],
-                    alpha=0.05,
-                    num_destroy=2,
-                    num_repair=1,
-                )
-                
-                # Use the same temperature configuration as in the framework
-                accept = SimulatedAnnealing.autofit(
-                    init_obj=init_solution.objective(),
-                    worse=0.20,  # Accept solutions up to 20% worse
-                    accept_prob=0.80,  # 80% acceptance probability
-                    num_iters=600,  # More iterations for extensive evaluation
-                    method='exponential'
-                )
-                stop = MaxIterations(600)
-                
-                # Run ALNS
-                op_start = time.time()
-                result = alns.iterate(deepcopy(init_solution), select, accept, stop)
-                runtime = time.time() - op_start
-                
-                # Calculate results
-                best_solution = result.best_state
-                objective = best_solution.objective()
-                feasible = best_solution.is_feasible()
-                tour_length = len(best_solution.tour)
-                prize_collected = best_solution.total_prize()
-                
-                results[f'{op_name}_objective'].append(objective)
-                results[f'{op_name}_time'].append(runtime)
-                results[f'{op_name}_feasible'].append(feasible)
-                results[f'{op_name}_tour_length'].append(tour_length)
-                results[f'{op_name}_prize_collected'].append(prize_collected)
-                
-            except Exception as e:
-                print(f"Error with {op_name} on instance {instance.instance_id}: {e}")
-                # Add placeholder values
-                results[f'{op_name}_objective'].append(init_solution.objective() * 2)
-                results[f'{op_name}_time'].append(0.0)
-                results[f'{op_name}_feasible'].append(False)
-                results[f'{op_name}_tour_length'].append(0)
-                results[f'{op_name}_prize_collected'].append(0.0)
-    
-    # Calculate gap vs baseline for EoH
-    for i in range(len(results['eoh_objective'])):
-        eoh_obj = results['eoh_objective'][i]
-        baseline_obj = results['baseline_objective'][i]
-        gap = 100 * (eoh_obj - baseline_obj) / baseline_obj if baseline_obj > 0 else 0
-        results['eoh_gap_vs_baseline'].append(gap)
+        print(f"\nInstance {instance.instance_id} (size {size}): Initial obj = {init_solution.objective():.2f}")
+        
+        # Test EoH operator
+        try:
+            # Setup ALNS
+            alns = ALNS(rnd.default_rng(SEED))
+            alns.add_destroy_operator(random_removal)
+            alns.add_destroy_operator(worst_removal)
+            alns.add_repair_operator(eoh_operator)
+            
+            # Configure ALNS
+            select = AlphaUCB(
+                scores=[5, 2, 1, 0.5],
+                alpha=0.05,
+                num_destroy=2,
+                num_repair=1,
+            )
+            
+            # Use the same temperature configuration as in the framework
+            accept = SimulatedAnnealing.autofit(
+                init_obj=init_solution.objective(),
+                worse=0.20,  # Accept solutions up to 20% worse
+                accept_prob=0.80,  # 80% acceptance probability
+                num_iters=1000,  # High number of iterations (will be limited by time)
+                method='exponential'
+            )
+            stop = MaxRuntime(60.0)  # 60 seconds time limit
+            
+            # Run ALNS
+            op_start = time.time()
+            result = alns.iterate(deepcopy(init_solution), select, accept, stop)
+            runtime = time.time() - op_start
+            
+            # Calculate results
+            best_solution = result.best_state
+            objective = best_solution.objective()
+            feasible = best_solution.is_feasible()
+            tour_length = len(best_solution.tour)
+            prize_collected = best_solution.total_prize()
+            improvement = init_solution.objective() - objective
+            
+            # Store results
+            results['eoh_objective'].append(objective)
+            results['eoh_improvement'].append(improvement)
+            results['eoh_time'].append(runtime)
+            results['eoh_feasible'].append(feasible)
+            results['eoh_tour_length'].append(tour_length)
+            results['eoh_prize_collected'].append(prize_collected)
+            
+            print(f"  EoH RESULT: obj = {objective:.2f}, "
+                  f"improvement = {improvement:+.2f}, "
+                  f"feasible = {feasible}, time = {runtime:.1f}s")
+            
+        except Exception as e:
+            print(f"  ERROR with EoH on instance {instance.instance_id}: {e}")
+            # Add placeholder values
+            objective = init_solution.objective() * 2
+            improvement = init_solution.objective() - objective
+            results['eoh_objective'].append(objective)
+            results['eoh_improvement'].append(improvement)
+            results['eoh_time'].append(0.0)
+            results['eoh_feasible'].append(False)
+            results['eoh_tour_length'].append(0)
+            results['eoh_prize_collected'].append(0.0)
     
     total_time = time.time() - start_time
+    
+    # Show summary by problem size
+    print(f"\n" + "="*60)
+    print("EoH EVALUATION SUMMARY BY PROBLEM SIZE")
+    print("="*60)
+    
+    df_temp = pd.DataFrame(results)
+    for size in sorted(df_temp['problem_size'].unique()):
+        size_data = df_temp[df_temp['problem_size'] == size]
+        n_instances = len(size_data)
+        improved_instances = (size_data['eoh_improvement'] > 0).sum()
+        avg_improvement = size_data['eoh_improvement'].mean()
+        avg_initial_obj = size_data['initial_objective'].mean()
+        avg_eoh_obj = size_data['eoh_objective'].mean()
+        feasible_rate = size_data['eoh_feasible'].mean()
+        avg_time = size_data['eoh_time'].mean()
+        
+        print(f"Size {size:3d}: {n_instances:2d} instances, improved {improved_instances:2d}/{n_instances:2d} ({100*improved_instances/n_instances:4.1f}%), "
+              f"avg improvement {avg_improvement:+6.2f}, "
+              f"obj: {avg_initial_obj:.2f} → {avg_eoh_obj:.2f}, "
+              f"feasible: {100*feasible_rate:4.1f}%, time: {avg_time:.1f}s")
+    
+    total_improved = (df_temp['eoh_improvement'] > 0).sum()
+    overall_improvement = df_temp['eoh_improvement'].mean()
+    overall_feasible = df_temp['eoh_feasible'].mean()
+    print(f"\nOVERALL: {total_improved}/{len(df_temp)} instances improved ({100*total_improved/len(df_temp):.1f}%), "
+          f"average improvement {overall_improvement:+.2f}, feasible rate {100*overall_feasible:.1f}%")
+    
     print(f"\n✅ Evaluation completed in {total_time/60:.1f} minutes")
     
     return results
 
 def analyze_extensive_results(results):
-    """Analyze and display the extensive evaluation results"""
+    """Analyze and display the EoH evaluation results"""
     
     df = pd.DataFrame(results)
     
     print("\n" + "="*70)
-    print("EXTENSIVE PCTSP EVALUATION RESULTS")
+    print("EXTENSIVE EoH PCTSP EVALUATION RESULTS")
     print("="*70)
     
     # Overall performance
-    print(f"\nOverall Performance:")
-    eoh_avg = df['eoh_gap_vs_baseline'].mean()
-    win_rate = (df['eoh_objective'] < df['baseline_objective']).mean() * 100
-    feasible_rate_eoh = df['eoh_feasible'].mean() * 100
-    feasible_rate_baseline = df['baseline_feasible'].mean() * 100
+    print(f"\nOverall EoH Performance:")
+    avg_initial_obj = df['initial_objective'].mean()
+    avg_eoh_obj = df['eoh_objective'].mean()
+    avg_improvement = df['eoh_improvement'].mean()
+    improved_instances = (df['eoh_improvement'] > 0).sum()
+    feasible_rate = df['eoh_feasible'].mean() * 100
+    avg_time = df['eoh_time'].mean()
     
-    print(f"  EoH vs Baseline: {eoh_avg:.2f}% average gap")
-    print(f"  Win rate: {win_rate:.1f}% ({(df['eoh_objective'] < df['baseline_objective']).sum()}/{len(df)} instances)")
-    print(f"  EoH feasible rate: {feasible_rate_eoh:.1f}%")
-    print(f"  Baseline feasible rate: {feasible_rate_baseline:.1f}%")
-    
-    # Average objectives and times
-    print(f"\nAverage Objectives:")
-    print(f"  EoH: {df['eoh_objective'].mean():.2f}")
-    print(f"  Baseline: {df['baseline_objective'].mean():.2f}")
-    print(f"  Improvement: {df['baseline_objective'].mean() - df['eoh_objective'].mean():.2f}")
-    
-    print(f"\nAverage Runtime:")
-    print(f"  EoH: {df['eoh_time'].mean():.2f}s")
-    print(f"  Baseline: {df['baseline_time'].mean():.2f}s")
+    print(f"  Average initial objective: {avg_initial_obj:.2f}")
+    print(f"  Average EoH objective: {avg_eoh_obj:.2f}")
+    print(f"  Average improvement: {avg_improvement:+.2f}")
+    print(f"  Instances improved: {improved_instances}/{len(df)} ({100*improved_instances/len(df):.1f}%)")
+    print(f"  Feasible rate: {feasible_rate:.1f}%")
+    print(f"  Average runtime: {avg_time:.1f}s")
     
     # Results by problem size
     print(f"\nResults by Problem Size:")
-    print("-" * 80)
+    print("-" * 90)
     
     size_results = df.groupby('problem_size').agg({
+        'initial_objective': 'mean',
         'eoh_objective': 'mean',
-        'baseline_objective': 'mean',
-        'eoh_gap_vs_baseline': 'mean',
+        'eoh_improvement': 'mean',
         'eoh_time': 'mean',
-        'baseline_time': 'mean',
-        'eoh_feasible': 'mean',
-        'baseline_feasible': 'mean'
+        'eoh_feasible': 'mean'
     }).round(3)
     
-    print("Size | EoH Obj | Base Obj | Gap(%) | EoH Time | Base Time | EoH Feas | Base Feas")
-    print("-" * 80)
+    print("Size | Initial Obj | EoH Obj | Improvement | Time | Feasible % | Improved Instances")
+    print("-" * 90)
     for size, row in size_results.iterrows():
-        print(f"{size:4d} | {row['eoh_objective']:7.2f} | {row['baseline_objective']:8.2f} | "
-              f"{row['eoh_gap_vs_baseline']:6.2f} | {row['eoh_time']:8.2f} | {row['baseline_time']:9.2f} | "
-              f"{row['eoh_feasible']:8.1%} | {row['baseline_feasible']:9.1%}")
+        size_data = df[df['problem_size'] == size]
+        improved_count = (size_data['eoh_improvement'] > 0).sum()
+        total_count = len(size_data)
+        print(f"{size:4d} | {row['initial_objective']:10.2f} | {row['eoh_objective']:7.2f} | "
+              f"{row['eoh_improvement']:+10.2f} | {row['eoh_time']:4.1f} | {row['eoh_feasible']:9.1%} | "
+              f"{improved_count:2d}/{total_count:2d} ({100*improved_count/total_count:4.1f}%)")
     
     # Best improvements
-    print(f"\nBest EoH Improvements (EoH better than baseline):")
-    df['improvement'] = df['baseline_objective'] - df['eoh_objective']
-    best_improvements = df[df['improvement'] > 0].nlargest(5, 'improvement')[
-        ['instance_id', 'problem_size', 'improvement', 'eoh_objective', 'baseline_objective']
+    print(f"\nBest EoH Improvements:")
+    best_improvements = df[df['eoh_improvement'] > 0].nlargest(5, 'eoh_improvement')[
+        ['instance_id', 'problem_size', 'initial_objective', 'eoh_objective', 'eoh_improvement']
     ]
     
     if len(best_improvements) > 0:
         for _, row in best_improvements.iterrows():
             print(f"  Instance {row['instance_id']} (size {row['problem_size']}): "
-                  f"{row['improvement']:+.2f} ({row['baseline_objective']:.2f} → {row['eoh_objective']:.2f})")
+                  f"{row['eoh_improvement']:+.2f} ({row['initial_objective']:.2f} → {row['eoh_objective']:.2f})")
     else:
-        print("  No instances where EoH outperformed baseline")
+        print("  No instances with positive improvement")
     
-    # Worst cases
-    print(f"\nWorst EoH Performance (baseline better than EoH):")
-    worst_cases = df[df['improvement'] < 0].nsmallest(5, 'improvement')[
-        ['instance_id', 'problem_size', 'improvement', 'eoh_objective', 'baseline_objective']
+    # Worst performances (largest degradations)
+    print(f"\nWorst EoH Performances (largest degradations):")
+    worst_cases = df[df['eoh_improvement'] < 0].nsmallest(5, 'eoh_improvement')[
+        ['instance_id', 'problem_size', 'initial_objective', 'eoh_objective', 'eoh_improvement']
     ]
     
     if len(worst_cases) > 0:
         for _, row in worst_cases.iterrows():
             print(f"  Instance {row['instance_id']} (size {row['problem_size']}): "
-                  f"{row['improvement']:+.2f} ({row['baseline_objective']:.2f} → {row['eoh_objective']:.2f})")
+                  f"{row['eoh_improvement']:+.2f} ({row['initial_objective']:.2f} → {row['eoh_objective']:.2f})")
     else:
-        print("  EoH outperformed baseline on all instances!")
+        print("  No instances with negative improvement!")
     
     # Feasibility analysis
     print(f"\nFeasibility Analysis:")
     eoh_infeasible = df[~df['eoh_feasible']]
-    baseline_infeasible = df[~df['baseline_feasible']]
     
     print(f"  EoH infeasible instances: {len(eoh_infeasible)}")
-    print(f"  Baseline infeasible instances: {len(baseline_infeasible)}")
     
     if len(eoh_infeasible) > 0:
-        print(f"  EoH infeasible by size: {eoh_infeasible['problem_size'].value_counts().to_dict()}")
+        print(f"  Infeasible by size: {eoh_infeasible['problem_size'].value_counts().to_dict()}")
+        print("  Sample infeasible instances:")
+        sample_infeasible = eoh_infeasible.head(3)[['instance_id', 'problem_size', 'eoh_objective']]
+        for _, row in sample_infeasible.iterrows():
+            print(f"    Instance {row['instance_id']} (size {row['problem_size']}): obj = {row['eoh_objective']:.2f}")
     
     return df
 
@@ -342,12 +336,12 @@ def main():
         'total_instances': len(results_df),
         'problem_sizes': results_df['problem_size'].unique().tolist(),
         'overall_performance': {
+            'initial_avg_objective': float(results_df['initial_objective'].mean()),
             'eoh_avg_objective': float(results_df['eoh_objective'].mean()),
-            'baseline_avg_objective': float(results_df['baseline_objective'].mean()),
-            'avg_gap_vs_baseline': float(results_df['eoh_gap_vs_baseline'].mean()),
-            'win_rate': float((results_df['eoh_objective'] < results_df['baseline_objective']).mean() * 100),
+            'avg_improvement': float(results_df['eoh_improvement'].mean()),
+            'improvement_rate': float((results_df['eoh_improvement'] > 0).mean() * 100),
             'eoh_feasible_rate': float(results_df['eoh_feasible'].mean() * 100),
-            'baseline_feasible_rate': float(results_df['baseline_feasible'].mean() * 100)
+            'avg_runtime': float(results_df['eoh_time'].mean())
         },
         'by_problem_size': {}
     }
@@ -356,10 +350,11 @@ def main():
         size_data = results_df[results_df['problem_size'] == size]
         summary_stats['by_problem_size'][int(size)] = {
             'instances': len(size_data),
+            'initial_avg_objective': float(size_data['initial_objective'].mean()),
             'eoh_avg_objective': float(size_data['eoh_objective'].mean()),
-            'baseline_avg_objective': float(size_data['baseline_objective'].mean()),
-            'avg_gap': float(size_data['eoh_gap_vs_baseline'].mean()),
-            'win_rate': float((size_data['eoh_objective'] < size_data['baseline_objective']).mean() * 100)
+            'avg_improvement': float(size_data['eoh_improvement'].mean()),
+            'improvement_rate': float((size_data['eoh_improvement'] > 0).mean() * 100),
+            'feasible_rate': float(size_data['eoh_feasible'].mean() * 100)
         }
     
     summary_filename = f"extensive_pctsp_summary_{timestamp}.json"
@@ -367,7 +362,7 @@ def main():
         json.dump(summary_stats, f, indent=2)
     print(f"💾 Summary saved to: {summary_filename}")
     
-    print("\n✅ Extensive PCTSP evaluation complete!")
+    print("\n✅ Extensive EoH PCTSP evaluation complete!")
 
 if __name__ == "__main__":
     main() 

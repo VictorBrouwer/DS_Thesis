@@ -1,10 +1,36 @@
 import re
 import sys
 import os
+import signal
+from functools import wraps
+import time
 
-# Add parent directory to path to import interface_llm
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add parent directory and PFSP directory to path to import interface_llm
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_dir)
+sys.path.append(os.path.join(parent_dir, 'PFSP'))
 from interface_llm import InterfaceLLM
+
+def timeout(seconds):
+    """Timeout decorator"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            def handler(signum, frame):
+                raise TimeoutError(f"Function timed out after {seconds} seconds")
+            
+            # Set the signal handler and a timeout
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                # Disable the alarm
+                signal.alarm(0)
+            return result
+        return wrapper
+    return decorator
 
 class Evolution:
     """Evolution engine for PCTSP repair operators"""
@@ -42,6 +68,11 @@ class Evolution:
         
         return code
     
+    @timeout(30)  # 30 second timeout
+    def _get_llm_response(self, prompt):
+        """Get response from LLM with timeout"""
+        return self.llm.get_response(prompt)
+    
     def i1(self):
         """Strategy i1: Generate initial repair operator from scratch"""
         
@@ -51,12 +82,34 @@ class Evolution:
         if self.debug_mode:
             print(f"Prompt: {prompt}")
             
-        response = self.llm.get_response(prompt)
-        code = self._extract_code(response)
-        
-        algorithm_desc = "Initial PCTSP repair operator generated from scratch"
-        
-        return code, algorithm_desc
+        try:
+            response = self._get_llm_response(prompt)
+            code = self._extract_code(response)
+            algorithm_desc = "Initial PCTSP repair operator generated from scratch"
+            return code, algorithm_desc
+        except TimeoutError:
+            print("LLM response timed out after 30 seconds. Using fallback operator.")
+            # Return a simple fallback operator
+            fallback_code = """
+def llm_repair(state, rng):
+    # Simple fallback operator that removes and reinserts nodes randomly
+    removed = []
+    for _ in range(3):  # Remove 3 nodes
+        if len(state.route) > 3:
+            idx = rng.integers(0, len(state.route))
+            removed.append(state.route.pop(idx))
+    
+    # Reinsert nodes at random positions
+    for node in removed:
+        if len(state.route) > 0:
+            idx = rng.integers(0, len(state.route) + 1)
+            state.route.insert(idx, node)
+        else:
+            state.route.append(node)
+    
+    return state
+"""
+            return fallback_code, "Fallback operator (timeout)"
     
     def e1(self, parents):
         """Strategy e1: Create totally different algorithms inspired by parents"""
@@ -84,12 +137,14 @@ class Evolution:
         Only provide the function code, no explanations.
         """
         
-        response = self.llm.get_response(prompt)
-        code = self._extract_code(response)
-        
-        algorithm_desc = "New PCTSP algorithm inspired by existing approaches but with different logic"
-        
-        return code, algorithm_desc
+        try:
+            response = self._get_llm_response(prompt)
+            code = self._extract_code(response)
+            algorithm_desc = "New PCTSP algorithm inspired by existing approaches but with different logic"
+            return code, algorithm_desc
+        except TimeoutError:
+            print("LLM response timed out after 30 seconds. Using fallback operator.")
+            return self._get_fallback_operator(), "Fallback operator (timeout)"
         
     def e2(self, parents):
         """Strategy e2: Create algorithms motivated by existing ones"""
@@ -117,12 +172,14 @@ class Evolution:
         Only provide the function code, no explanations.
         """
         
-        response = self.llm.get_response(prompt)
-        code = self._extract_code(response)
-        
-        algorithm_desc = "Hybrid PCTSP algorithm combining ideas from parent operators"
-        
-        return code, algorithm_desc
+        try:
+            response = self._get_llm_response(prompt)
+            code = self._extract_code(response)
+            algorithm_desc = "Hybrid PCTSP algorithm combining ideas from parent operators"
+            return code, algorithm_desc
+        except TimeoutError:
+            print("LLM response timed out after 30 seconds. Using fallback operator.")
+            return self._get_fallback_operator(), "Fallback operator (timeout)"
     
     def m1(self, parent):
         """Strategy m1: Modify existing algorithm"""
@@ -145,12 +202,14 @@ class Evolution:
         Only provide the function code, no explanations.
         """
         
-        response = self.llm.get_response(prompt)
-        code = self._extract_code(response)
-        
-        algorithm_desc = f"Modified version of: {parent['algorithm']}"
-        
-        return code, algorithm_desc
+        try:
+            response = self._get_llm_response(prompt)
+            code = self._extract_code(response)
+            algorithm_desc = f"Modified version of: {parent['algorithm']}"
+            return code, algorithm_desc
+        except TimeoutError:
+            print("LLM response timed out after 30 seconds. Using fallback operator.")
+            return self._get_fallback_operator(), "Fallback operator (timeout)"
     
     def m2(self, parent):
         """Strategy m2: Change parameters/constants"""
@@ -173,12 +232,14 @@ class Evolution:
         Only provide the function code, no explanations.
         """
         
-        response = self.llm.get_response(prompt)
-        code = self._extract_code(response)
-        
-        algorithm_desc = f"Parameter-tuned version of: {parent['algorithm']}"
-        
-        return code, algorithm_desc
+        try:
+            response = self._get_llm_response(prompt)
+            code = self._extract_code(response)
+            algorithm_desc = f"Parameter-tuned version of: {parent['algorithm']}"
+            return code, algorithm_desc
+        except TimeoutError:
+            print("LLM response timed out after 30 seconds. Using fallback operator.")
+            return self._get_fallback_operator(), "Fallback operator (timeout)"
     
     def m3(self, parent):
         """Strategy m3: Simplify for generalization"""
@@ -196,14 +257,37 @@ class Evolution:
         - Simpler node selection rules
         - Straightforward insertion strategies
         - Basic but robust prize/penalty handling
-        - Reduced computational complexity
         
         Only provide the function code, no explanations.
         """
         
-        response = self.llm.get_response(prompt)
-        code = self._extract_code(response)
-        
-        algorithm_desc = f"Simplified version of: {parent['algorithm']}"
-        
-        return code, algorithm_desc 
+        try:
+            response = self._get_llm_response(prompt)
+            code = self._extract_code(response)
+            algorithm_desc = f"Simplified version of: {parent['algorithm']}"
+            return code, algorithm_desc
+        except TimeoutError:
+            print("LLM response timed out after 30 seconds. Using fallback operator.")
+            return self._get_fallback_operator(), "Fallback operator (timeout)"
+    
+    def _get_fallback_operator(self):
+        """Return a simple fallback operator when LLM times out"""
+        return """
+def llm_repair(state, rng):
+    # Simple fallback operator that removes and reinserts nodes randomly
+    removed = []
+    for _ in range(3):  # Remove 3 nodes
+        if len(state.route) > 3:
+            idx = rng.integers(0, len(state.route))
+            removed.append(state.route.pop(idx))
+    
+    # Reinsert nodes at random positions
+    for node in removed:
+        if len(state.route) > 0:
+            idx = rng.integers(0, len(state.route) + 1)
+            state.route.insert(idx, node)
+        else:
+            state.route.append(node)
+    
+    return state
+""" 

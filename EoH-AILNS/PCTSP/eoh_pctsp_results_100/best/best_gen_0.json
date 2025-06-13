@@ -1,0 +1,17 @@
+{
+  "algorithm": "Initial PCTSP repair operator generated from scratch",
+  "code": "def llm_repair(state: 'PCTSPSolution', rng, **kwargs) -> 'PCTSPSolution':\n    \"\"\"\n    Repair operator for the Price Collecting Travelling Salesman Problem (PCTSP) using ALNS.\n    Inserts unvisited nodes back into the solution in a smart way, ensuring the solution collects enough prize.\n    \"\"\"\n\n    unvisited_nodes = list(state.unvisited)\n    rng.shuffle(unvisited_nodes)\n\n    # Calculate prize-to-penalty ratio for each unvisited node\n    prize_penalty_ratios = {node: DATA.prizes[node] / DATA.penalties[node] for node in unvisited_nodes}\n\n    # Sort unvisited nodes by prize-to-penalty ratio in descending order\n    sorted_nodes = sorted(unvisited_nodes, key=lambda node: prize_penalty_ratios[node], reverse=True)\n\n    for node in sorted_nodes:\n        # Try inserting the node at the best possible location in the tour\n        best_insert_idx = -1\n        best_insert_cost = float('inf')\n\n        for i in range(len(state.tour) + 1):\n            temp_tour = list(state.tour)\n            temp_tour.insert(i, node)\n            \n            tour_cost = 0.0\n            if len(temp_tour) > 0:\n                start = DATA.depot\n                for j in range(len(temp_tour)):\n                    end = DATA.locations[temp_tour[j]]\n                    tour_cost += np.linalg.norm(start - end)\n                    start = end\n                tour_cost += np.linalg.norm(start - DATA.depot)\n                \n            current_penalty = sum(DATA.penalties[n] for n in state.unvisited if n != node)\n            temp_cost = tour_cost + current_penalty\n            \n            if temp_cost < best_insert_cost:\n                best_insert_cost = temp_cost\n                best_insert_idx = i\n\n        # Insert the node at the best location if it improves the cost\n        if best_insert_idx != -1:\n            state.opt_insert(node)\n\n    # If the solution is still infeasible, greedily insert nodes until it becomes feasible\n    while not state.is_feasible():\n        remaining_unvisited = list(state.unvisited)\n        if not remaining_unvisited:\n            break\n\n        best_node = None\n        best_prize_penalty_ratio = -1\n        for node in remaining_unvisited:\n            ratio = DATA.prizes[node] / DATA.penalties[node]\n            if ratio > best_prize_penalty_ratio:\n                best_prize_penalty_ratio = ratio\n                best_node = node\n\n        if best_node is not None:\n            state.opt_insert(best_node)\n        else:\n            break\n\n    return state",
+  "objective": 17.55732648238738,
+  "gap": -3.7343265705531543,
+  "runtime": 60.16460871696472,
+  "timestamp": "2025-06-13 16:41:52",
+  "feasible": true,
+  "instance1_objective": 9.218219462663203,
+  "instance2_objective": 8.33910701972418,
+  "instance1_gap": -3.720155899729593,
+  "instance2_gap": -3.748497241376716,
+  "instance1_feasible": true,
+  "instance2_feasible": true,
+  "tour_length": 200,
+  "prize_collected": 4.1363912134368785
+}

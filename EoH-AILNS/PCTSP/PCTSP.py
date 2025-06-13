@@ -9,7 +9,7 @@ import numpy.random as rnd
 from alns import ALNS
 from alns.accept import SimulatedAnnealing
 from alns.select import AlphaUCB
-from alns.stop import MaxIterations
+from alns.stop import MaxIterations, MaxRuntime
 
 # Global variables
 SEED = 2345
@@ -257,26 +257,28 @@ def random_removal(state: PCTSPSolution, rng, **kwargs) -> PCTSPSolution:
     
     return state
 
-def worst_removal(state: PCTSPSolution, rng, **kwargs) -> PCTSPSolution:
-    """Remove nodes with worst prize-to-penalty ratio"""
+def adjacent_removal(state: PCTSPSolution, rng, **kwargs) -> PCTSPSolution:
+    """Remove a sequence of 3 adjacent nodes from the tour"""
     if not state.tour:
         return state
     
-    # Calculate ratios for nodes in tour
-    ratios = []
-    for node in state.tour:
-        ratio = DATA.prizes[node] / (DATA.penalties[node] + 1e-6)
-        ratios.append((node, ratio))
+    # Fixed number of nodes to remove
+    n_remove = 3
     
-    # Sort by ratio (worst first)
-    ratios.sort(key=lambda x: x[1])
+    # If tour is shorter than 3 nodes, remove all nodes
+    if len(state.tour) <= n_remove:
+        state.tour.clear()
+        state.unvisited = list(range(DATA.size))
+        return state
     
-    # Remove worst 20-40% of nodes
-    n_remove = max(1, min(len(ratios), len(ratios) // 3))
+    # Select a random starting position
+    start_pos = rng.integers(0, len(state.tour) - n_remove + 1)
     
-    for i in range(n_remove):
-        node = ratios[i][0]
-        state.remove(node)
+    # Remove the sequence of adjacent nodes
+    for _ in range(n_remove):
+        if start_pos < len(state.tour):
+            node = state.tour[start_pos]
+            state.remove(node)
     
     return state
 
@@ -327,7 +329,7 @@ def evaluate_operator(operator_func, initial_solution: PCTSPSolution, data_file:
         
         # Add destroy operators
         alns.add_destroy_operator(random_removal)
-        alns.add_destroy_operator(worst_removal)
+        alns.add_destroy_operator(adjacent_removal)
         
         # Add the repair operator to evaluate
         alns.add_repair_operator(operator_func)
@@ -345,10 +347,10 @@ def evaluate_operator(operator_func, initial_solution: PCTSPSolution, data_file:
             init_obj=initial_solution.objective(),
             worse=0.20,  # Accept solutions up to 20% worse
             accept_prob=0.80,  # 80% acceptance probability
-            num_iters=300,  # Number of iterations
+            num_iters=1000,  # High number of iterations (will be limited by time)
             method='exponential'
         )
-        stop = MaxIterations(300)
+        stop = MaxRuntime(30.0)  # 30 seconds time limit
         
         # Run ALNS
         start_time = time.time()
@@ -398,4 +400,32 @@ def load_instances(problem_size: int = 20) -> List[PCTSPData]:
         return instances
     except FileNotFoundError:
         print(f"Error: Instance file not found at {filename}")
+        return []
+
+def load_training_instances(problem_size: int = 20) -> List[PCTSPData]:
+    """Load PCTSP training instances from pickle file"""
+    filename = f"training_data/pctsp{problem_size}_training.pkl"
+    try:
+        with open(filename, 'rb') as f:
+            instances_tuples = pickle.load(f)
+        
+        instances = []
+        for i, instance_tuple in enumerate(instances_tuples):
+            # Unpack the tuple: (depot, locations, penalties, prizes, deterministic_prize)
+            depot, locations, penalties, prizes, deterministic_prize = instance_tuple
+            
+            # Create PCTSPData object
+            instance = PCTSPData(
+                instance_id=i + 1,  # Start from 1
+                size=len(locations),
+                depot=np.array(depot),
+                locations=np.array(locations),
+                penalties=np.array(penalties),
+                prizes=np.array(deterministic_prize)  # Use deterministic_prize as the main prizes
+            )
+            instances.append(instance)
+        
+        return instances
+    except FileNotFoundError:
+        print(f"Error: Training instance file not found at {filename}")
         return [] 

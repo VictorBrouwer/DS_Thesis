@@ -1,0 +1,19 @@
+{
+  "algorithm": "New PCTSP algorithm inspired by existing approaches but with different logic",
+  "code": "def llm_repair(state: 'PCTSPSolution', rng, **kwargs) -> 'PCTSPSolution':\n    \"\"\"\n    Repair operator for the Price Collecting Travelling Salesman Problem (PCTSP) using ALNS.\n    This operator focuses on penalty-driven insertion and strategic prize collection.\n    \"\"\"\n\n    unvisited_nodes = list(state.unvisited)\n\n    # 1. Penalty-driven node selection: Prioritize nodes with high penalties\n    penalty_priority = {node: DATA.penalties[node] for node in unvisited_nodes}\n    sorted_nodes = sorted(unvisited_nodes, key=lambda node: penalty_priority[node], reverse=True)\n\n    # 2. Insert nodes until a certain prize threshold is met, or no more nodes.\n    prize_buffer = 0.9 * DATA.total_prize  # Aim for 90% of the total prize initially\n    \n    while state.total_prize() < prize_buffer and sorted_nodes:\n        node = sorted_nodes.pop(0)\n        state.opt_insert(node)  # Insert at the best possible location\n\n    # 3. Distance-aware insertion for remaining nodes:\n    remaining_unvisited = list(state.unvisited)\n    \n    if remaining_unvisited:\n      distances = {}\n      for node in remaining_unvisited:\n          min_dist = float('inf')\n          if state.tour:\n              for tour_node in state.tour:\n                  dist = np.linalg.norm(DATA.locations[node] - DATA.locations[tour_node])\n                  min_dist = min(min_dist, dist)\n              dist_to_depot1 = np.linalg.norm(DATA.locations[node] - DATA.depot)\n              dist_to_depot2 = np.linalg.norm(DATA.locations[state.tour[0]] - DATA.depot)\n\n          else:\n              min_dist = np.linalg.norm(DATA.locations[node] - DATA.depot)\n\n          distances[node] = min_dist\n      \n      distance_priority = {node: distances[node] for node in remaining_unvisited}\n      distance_sorted_nodes = sorted(remaining_unvisited, key=lambda node: distance_priority[node])\n      \n      for node in distance_sorted_nodes:\n          if state.total_prize() < DATA.total_prize:\n            state.opt_insert(node)\n          else:\n            break # Enough prize\n\n    # 4. Feasibility enforcement: If still infeasible, insert the node with highest prize/penalty ratio\n    while not state.is_feasible():\n        remaining_unvisited = list(state.unvisited)\n        if not remaining_unvisited:\n            break # cannot be repaired\n\n        best_node = None\n        best_ratio = -1.0\n        for node in remaining_unvisited:\n            ratio = DATA.prizes[node] / (DATA.penalties[node] + 1e-9) # Avoid division by zero\n            if ratio > best_ratio:\n                best_ratio = ratio\n                best_node = node\n\n        if best_node is not None:\n            state.opt_insert(best_node)\n        else:\n            break # no more nodes, repair failed\n\n    return state",
+  "objective": 14.280693151909972,
+  "gap": -21.69376009042803,
+  "runtime": 60.027249813079834,
+  "timestamp": "2025-06-13 16:48:52",
+  "feasible": true,
+  "instance1_objective": 7.486696356068971,
+  "instance2_objective": 6.793996795841002,
+  "instance1_gap": -21.805077335386624,
+  "instance2_gap": -21.58244284546943,
+  "instance1_feasible": true,
+  "instance2_feasible": true,
+  "tour_length": 83,
+  "prize_collected": 2.0375640371898065,
+  "strategy": "e1",
+  "generation": 2
+}

@@ -1,0 +1,33 @@
+{
+  "timestamp": "20250611_213353",
+  "operators": {
+    "Small (20)": "Initial PCTSP repair operator generated from scratch",
+    "Medium (50)": "New PCTSP algorithm inspired by existing approaches but with different logic",
+    "Large (100)": "Hybrid PCTSP algorithm combining ideas from parent operators"
+  },
+  "total_instances": 60,
+  "total_runtime_minutes": 60.02381626367569,
+  "overall_performance": {
+    "avg_improvement": 0.9822584116962573,
+    "improvement_rate": 95.0,
+    "feasible_rate": 30.0
+  },
+  "by_problem_size": {
+    "20": {
+      "problem_size": 20,
+      "num_instances": 20,
+      "avg_initial_objective": 4.936236859955829,
+      "avg_final_objective": 4.14090606288908,
+      "avg_improvement": 0.7953307970667497,
+      "improvement_rate": 100.0,
+      "feasible_rate": 45.0,
+      "avg_runtime": 60.000307941436766,
+      "detailed_results": [
+        {
+          "test": "size_20_inst_1",
+          "size": 20,
+          "total_prize_required": 1.0,
+          "initial_objective": 4.838414088137304,
+          "final_objective": 3.3390040542580603,
+          "improvement": 1.4994100338792435,
+          "feasible": 
