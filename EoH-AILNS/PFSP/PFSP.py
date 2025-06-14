@@ -328,7 +328,7 @@ def create_llm_repair_operator(json_file="llm_repair_operator.json", force_new=T
         print("Falling back to greedy_repair_then_local_search")
         return greedy_repair_then_local_search
 
-def evaluate_operator(repair_operator, initial_solution, data_file_path):
+def evaluate_operator(repair_operator, initial_solution, data_file_path, time_limit=30):
     """
     Evaluate a repair operator by running ALNS with it.
     
@@ -336,11 +336,12 @@ def evaluate_operator(repair_operator, initial_solution, data_file_path):
         repair_operator: The repair operator function to evaluate
         initial_solution: The initial solution
         data_file_path: Path to the data file used
+        time_limit: Time limit in seconds for the ALNS run
         
     Returns:
         Dictionary with evaluation metrics
     """
-    print(f"\n=== Evaluating repair operator ===")
+    print(f"\n=== Evaluating repair operator on {data_file_path} ===")
     
     alns = ALNS(rnd.default_rng(SEED))
     alns.add_destroy_operator(random_removal)
@@ -354,28 +355,72 @@ def evaluate_operator(repair_operator, initial_solution, data_file_path):
         num_repair=len(alns.repair_operators),
     )
     
-    ITERS = 600
-    accept = SimulatedAnnealing.autofit(initial_solution.objective(), 0.05, 0.50, ITERS)
-    stop = MaxIterations(ITERS)
+    accept = SimulatedAnnealing.autofit(initial_solution.objective(), 0.05, 0.50, 1000)
+    stop = MaxRuntime(time_limit)
     
     start_time = time.time()
     result = alns.iterate(deepcopy(initial_solution), select, accept, stop)
     runtime = time.time() - start_time
     
     final_obj = result.best_state.objective()
-    final_gap = 100 * (final_obj - DATA.bkv) / DATA.bkv
     
     print(f"Solution objective: {final_obj}")
-    print(f"Gap to BKV: {final_gap:.2f}%")
     print(f"Runtime: {runtime:.2f} seconds")
+    
+    # Handle statistics access safely
+    try:
+        if hasattr(result.statistics, "iterations"):
+            iterations = result.statistics.iterations
+        elif hasattr(result.statistics, "__getitem__"):
+            iterations = result.statistics["iterations"]
+        else:
+            iterations = 0
+    except:
+        iterations = 0
     
     return {
         "objective": final_obj,
-        "gap": final_gap,
         "runtime": runtime,
         "data_file": data_file_path,
-        "iterations": ITERS,
-        "best_schedule": result.best_state.schedule
+        "iterations": iterations
+    }
+
+def evaluate_operator_on_instances(repair_operator, instance_paths):
+    """
+    Evaluate a repair operator on multiple instances.
+    
+    Args:
+        repair_operator: The repair operator function to evaluate
+        instance_paths: List of paths to instance files
+        
+    Returns:
+        Dictionary with combined evaluation metrics
+    """
+    total_objective = 0
+    total_runtime = 0
+    results = []
+    
+    for instance_path in instance_paths:
+        # Load the instance
+        global DATA
+        DATA = Data.from_file(instance_path)
+        
+        # Create initial solution using NEH
+        init = NEH(DATA.processing_times)
+        
+        # Evaluate the operator
+        result = evaluate_operator(repair_operator, init, instance_path)
+        results.append(result)
+        
+        total_objective += result["objective"]
+        total_runtime += result["runtime"]
+    
+    return {
+        "total_objective": total_objective,
+        "average_objective": total_objective / len(instance_paths),
+        "total_runtime": total_runtime,
+        "average_runtime": total_runtime / len(instance_paths),
+        "instance_results": results
     }
 
 def NEH(processing_times: np.ndarray) -> Solution:
@@ -394,20 +439,15 @@ def NEH(processing_times: np.ndarray) -> Solution:
     return solution
 
 if __name__ == "__main__":
-    # Load the data
-    data_file = "data/j20_m5/j20_m5_01.txt"
-    DATA = Data.from_file(data_file)
+    # Load the training instances
+    training_instances = [
+        "training_data/j20_m10_1.txt",
+        "training_data/j20_m10_2.txt"
+    ]
     
-    print(f"Problem: {DATA.n_jobs} jobs, {DATA.n_machines} machines")
-    print(f"Best known value: {DATA.bkv}")
-    
-    # Create initial solution using NEH
+    # Create initial solution using NEH for the first instance (just for initialization)
+    DATA = Data.from_file(training_instances[0])
     init = NEH(DATA.processing_times)
-    initial_obj = init.objective()
-    initial_gap = 100 * (initial_obj - DATA.bkv) / DATA.bkv
-    
-    print(f"Initial solution objective: {initial_obj}")
-    print(f"Initial gap to BKV: {initial_gap:.2f}%")
     
     # Generate and evaluate 4 different LLM repair operators
     results = []
@@ -425,8 +465,8 @@ if __name__ == "__main__":
             force_new=True  # Always generate new operators
         )
         
-        # Evaluate the operator
-        evaluation = evaluate_operator(llm_repair, init, data_file)
+        # Evaluate the operator on training instances
+        evaluation = evaluate_operator_on_instances(llm_repair, training_instances)
         results.append(evaluation)
         
         # Update the JSON file with evaluation results
@@ -447,28 +487,26 @@ if __name__ == "__main__":
     print(f"Evaluating original repair operator for comparison")
     print(f"{'='*50}")
     
-    original_evaluation = evaluate_operator(greedy_repair_then_local_search, init, data_file)
+    original_evaluation = evaluate_operator_on_instances(greedy_repair_then_local_search, training_instances)
     
     # Compare all results
     print(f"\n{'='*50}")
     print(f"Comparison of all repair operators")
     print(f"{'='*50}")
     
-    print(f"Best known value: {DATA.bkv}")
-    
     for i, result in enumerate(results):
-        print(f"LLM operator {i+1}: {result['objective']} (gap: {result['gap']:.2f}%, time: {result['runtime']:.2f}s)")
+        print(f"LLM operator {i+1}: {result['total_objective']} (avg: {result['average_objective']:.2f}, time: {result['total_runtime']:.2f}s)")
     
-    print(f"Original operator: {original_evaluation['objective']} (gap: {original_evaluation['gap']:.2f}%, time: {original_evaluation['runtime']:.2f}s)")
+    print(f"Original operator: {original_evaluation['total_objective']} (avg: {original_evaluation['average_objective']:.2f}, time: {original_evaluation['total_runtime']:.2f}s)")
     
     # Find the best operator
-    best_llm_idx = min(range(len(results)), key=lambda i: results[i]['objective'])
+    best_llm_idx = min(range(len(results)), key=lambda i: results[i]['total_objective'])
     best_llm = results[best_llm_idx]
     
-    print(f"\nBest LLM operator: #{best_llm_idx+1} with objective {best_llm['objective']} (gap: {best_llm['gap']:.2f}%)")
-    print(f"vs. Original operator: {original_evaluation['objective']} (gap: {original_evaluation['gap']:.2f}%)")
+    print(f"\nBest LLM operator: #{best_llm_idx+1} with total objective {best_llm['total_objective']} (avg: {best_llm['average_objective']:.2f})")
+    print(f"vs. Original operator: {original_evaluation['total_objective']} (avg: {original_evaluation['average_objective']:.2f})")
     
     # Calculate improvement
-    improvement = (original_evaluation['objective'] - best_llm['objective']) / original_evaluation['objective'] * 100
+    improvement = (original_evaluation['total_objective'] - best_llm['total_objective']) / original_evaluation['total_objective'] * 100
     print(f"Improvement: {improvement:.2f}%")
     

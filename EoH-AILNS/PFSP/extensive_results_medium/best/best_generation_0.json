@@ -1,9 +1,34 @@
 {
   "algorithm": "Initial PFSP repair operator generated from scratch",
-  "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts unassigned jobs back into the solution in a smart way to minimize the makespan.\n\n    Args:\n        state (Solution): The current solution.\n        rng: numpy.random.Generator object for random operations.\n\n    Returns:\n        Solution: The modified solution.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]\n    rng.shuffle(unassigned_jobs)  # Shuffle the unassigned jobs\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)  # Optimally insert each job\n        \n    state.unassigned = []\n\n    return state",
-  "objective": 3935,
-  "gap": 1.5483870967741935,
-  "runtime": 3.0092742443084717,
-  "timestamp": "2025-06-06 19:01:21",
-  "feasible": true
+  "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Args:\n        state: The current solution.\n        rng: The random number generator.\n        **kwargs: Additional keyword arguments.\n\n    Returns:\n        The repaired solution.\n    \"\"\"\n    # Insert unassigned jobs back into the solution using optimal insertion.\n    rng.shuffle(state.unassigned)  # Shuffle unassigned jobs for some randomness\n    for job in state.unassigned:\n        state.opt_insert(job)  # Insert each job at its best location\n    state.unassigned = []  # Clear the unassigned list\n\n    return state",
+  "objective": 7659,
+  "gap": null,
+  "runtime": 60.002727031707764,
+  "timestamp": "2025-06-14 12:09:53",
+  "feasible": true,
+  "training_instances": [
+    "training_data/j50_m20/j50_m20_1.txt",
+    "training_data/j50_m20/j50_m20_2.txt"
+  ],
+  "training_evaluation": {
+    "total_objective": 7659,
+    "average_objective": 3829.5,
+    "total_runtime": 60.002727031707764,
+    "average_runtime": 30.001363515853882,
+    "instance_results": [
+      {
+        "objective": 3890,
+        "runtime": 30.00204610824585,
+        "data_file": "training_data/j50_m20/j50_m20_1.txt",
+        "iterations": 0
+      },
+      {
+        "objective": 3769,
+        "runtime": 30.000680923461914,
+        "data_file": "training_data/j50_m20/j50_m20_2.txt",
+        "iterations": 0
+      }
+    ],
+    "n_instances": 2
+  }
 }

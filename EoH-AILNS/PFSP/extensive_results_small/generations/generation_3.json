@@ -1,6 +1,6 @@
 {
-  "generation": 1,
-  "timestamp": "2025-06-14 11:57:28",
+  "generation": 3,
+  "timestamp": "2025-06-14 12:05:40",
   "problem_file": "data/j20_m10/j20_m10_01.txt",
   "best_known_value": 1582,
   "population_size": 5,

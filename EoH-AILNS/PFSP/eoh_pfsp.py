@@ -182,7 +182,7 @@ class EoH_PFSP:
         
         print(f"\nInitial population created:")
         for i, ind in enumerate(population):
-            print(f"  {i+1}. Objective: {ind['objective']}, Gap: {ind['gap']:.2f}%, Feasible: {ind['feasible']}")
+            print(f"  {i+1}. Objective: {ind['objective']}, Feasible: {ind['feasible']}")
             
         return population
     
@@ -256,7 +256,7 @@ class EoH_PFSP:
         
         print(f"\nGeneration {generation} results:")
         for i, ind in enumerate(next_population):
-            print(f"  {i+1}. Objective: {ind['objective']}, Gap: {ind['gap']:.2f}%, Strategy: {ind.get('strategy', 'initial')}")
+            print(f"  {i+1}. Objective: {ind['objective']}, Strategy: {ind.get('strategy', 'initial')}")
         
         return next_population
     
@@ -313,11 +313,9 @@ class EoH_PFSP:
         for generation in range(1, self.n_generations + 1):
             population = self.evolve_population(population, generation)
             
-            # Early stopping if we find a very good solution
-            best_gap = population[0]['gap']
-            if best_gap < 1.0:  # Less than 1% gap
-                print(f"Early stopping: Found solution with {best_gap:.2f}% gap")
-                break
+            # Early stopping if we find a very good solution (based on objective improvement)
+            # Skip early stopping for now since we don't have gap calculation
+            pass
         
         total_time = time.time() - start_time
         
@@ -325,7 +323,6 @@ class EoH_PFSP:
         print(f"\n=== Final Results ===")
         print(f"Total runtime: {total_time:.2f} seconds")
         print(f"Best solution objective: {population[0]['objective']}")
-        print(f"Best solution gap: {population[0]['gap']:.2f}%")
         print(f"Best known value: {DATA.bkv}")
         
         # Save final summary (with type conversion)
@@ -350,7 +347,6 @@ class EoH_PFSP:
             "problem_file": self.data_file,
             "best_known_value": int(DATA.bkv),
             "best_objective": convert_types(population[0]['objective']),
-            "best_gap": convert_types(population[0]['gap']),
             "initial_objective": convert_types(self.initial_solution.objective()),
             "final_population": convert_types(population)
         }

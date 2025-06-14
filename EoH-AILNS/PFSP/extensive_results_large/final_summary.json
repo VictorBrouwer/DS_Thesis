@@ -1,61 +1,187 @@
 {
-  "total_runtime": 147.47529482841492,
+  "total_runtime": 1306.8240158557892,
   "generations": 4,
   "population_size": 5,
   "problem_file": "data/j100_m10/j100_m10_01.txt",
   "best_known_value": 5770,
-  "best_objective": 5804,
-  "best_gap": 0.5892547660311959,
-  "initial_objective": 5876,
+  "best_objective": 11489,
+  "initial_objective": 6897,
   "final_population": [
     {
       "algorithm": "Initial PFSP repair operator generated from scratch",
-      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    unassigned_jobs = state.unassigned[:]  # Create a copy to avoid modifying original\n    rng.shuffle(unassigned_jobs) #Randomize the order\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n    state.unassigned = []\n    return state",
-      "objective": 5804,
-      "gap": 0.5892547660311959,
-      "runtime": 3.0580508708953857,
-      "timestamp": "2025-06-06 19:08:50",
-      "feasible": true
+      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"Repair operator for PFSP using ALNS.\"\"\"\n\n    # Sort unassigned jobs randomly\n    rng.shuffle(state.unassigned)\n\n    # Re-insert unassigned jobs optimally\n    for job in state.unassigned:\n        state.opt_insert(job)\n    \n    state.unassigned = []\n    return state",
+      "objective": 11489,
+      "gap": null,
+      "runtime": 60.00658082962036,
+      "timestamp": "2025-06-14 12:33:52",
+      "feasible": true,
+      "training_instances": [
+        "training_data/j100_m10/j100_m10_1.txt",
+        "training_data/j100_m10/j100_m10_2.txt"
+      ],
+      "training_evaluation": {
+        "total_objective": 11489,
+        "average_objective": 5744.5,
+        "total_runtime": 60.00658082962036,
+        "average_runtime": 30.00329041481018,
+        "instance_results": [
+          {
+            "objective": 5719,
+            "runtime": 30.004243850708008,
+            "data_file": "training_data/j100_m10/j100_m10_1.txt",
+            "iterations": 0
+          },
+          {
+            "objective": 5770,
+            "runtime": 30.002336978912354,
+            "data_file": "training_data/j100_m10/j100_m10_2.txt",
+            "iterations": 0
+          }
+        ],
+        "n_instances": 2
+      }
     },
     {
       "algorithm": "Initial PFSP repair operator generated from scratch",
-      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Args:\n        state: The current solution.\n        rng: A numpy.random.Generator object for random operations.\n\n    Returns:\n        The modified solution with unassigned jobs re-inserted.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]\n    rng.shuffle(unassigned_jobs)\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n\n    state.unassigned = []  # Ensure unassigned list is empty\n\n    return state",
-      "objective": 5804,
-      "gap": 0.5892547660311959,
-      "runtime": 3.047635793685913,
-      "timestamp": "2025-06-06 19:09:07",
-      "feasible": true
-    },
-    {
-      "algorithm": "Hybrid algorithm combining ideas from parent operators",
-      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Args:\n        state: The current solution.\n        rng: A numpy.random.Generator object for random operations.\n\n    Returns:\n        The modified solution with unassigned jobs re-inserted.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]  # Create a copy\n    rng.shuffle(unassigned_jobs)\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n\n    state.unassigned = []  # Ensure unassigned list is empty\n\n    return state",
-      "objective": 5804,
-      "gap": 0.5892547660311959,
-      "runtime": 3.0377650260925293,
-      "timestamp": "2025-06-06 19:10:07",
+      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    This operator inserts the unassigned jobs back into the solution in a smart way,\n    trying to minimize the makespan.\n\n    Args:\n        state: The current solution.\n        rng: A numpy.random.Generator object for random operations.\n\n    Returns:\n        The modified solution.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]\n    rng.shuffle(unassigned_jobs)\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n        state.unassigned.remove(job)\n\n    return state",
+      "objective": 11489,
+      "gap": null,
+      "runtime": 60.00247573852539,
+      "timestamp": "2025-06-14 12:35:58",
       "feasible": true,
-      "strategy": "e2",
-      "generation": 1
+      "training_instances": [
+        "training_data/j100_m10/j100_m10_1.txt",
+        "training_data/j100_m10/j100_m10_2.txt"
+      ],
+      "training_evaluation": {
+        "total_objective": 11489,
+        "average_objective": 5744.5,
+        "total_runtime": 60.00247573852539,
+        "average_runtime": 30.001237869262695,
+        "instance_results": [
+          {
+            "objective": 5719,
+            "runtime": 30.001465797424316,
+            "data_file": "training_data/j100_m10/j100_m10_1.txt",
+            "iterations": 0
+          },
+          {
+            "objective": 5770,
+            "runtime": 30.001009941101074,
+            "data_file": "training_data/j100_m10/j100_m10_2.txt",
+            "iterations": 0
+          }
+        ],
+        "n_instances": 2
+      }
     },
     {
       "algorithm": "New algorithm inspired by existing approaches but with different logic",
-      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    This operator inserts unassigned jobs back into the schedule based on a\n    greedy approach considering the increase in makespan at each possible\n    insertion point. It evaluates multiple insertions and chooses the best.\n\n    Args:\n        state: The current solution.\n        rng: A numpy.random.Generator object for random operations.\n\n    Returns:\n        The modified solution with unassigned jobs re-inserted.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]  # Copy to avoid modifying original\n    state.unassigned = []  # Reset unassigned list\n\n    for job in unassigned_jobs:\n        best_insert_idx = -1\n        min_makespan_increase = float('inf')\n        original_makespan = state.objective()\n\n        for i in range(len(state.schedule) + 1):\n            temp_schedule = state.schedule[:]\n            temp_schedule.insert(i, job)\n\n            makespan = compute_makespan(temp_schedule)\n            makespan_increase = makespan - original_makespan\n\n            if makespan_increase < min_makespan_increase:\n                min_makespan_increase = makespan_increase\n                best_insert_idx = i\n\n        state.insert(job, best_insert_idx)\n\n    return state",
-      "objective": 5812,
-      "gap": 0.7279029462738301,
-      "runtime": 52.692911863327026,
-      "timestamp": "2025-06-06 19:09:12",
+      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"Repair operator for PFSP using ALNS.\n\n    This operator inserts unassigned jobs back into the solution, prioritizing\n    jobs that contribute most to the makespan if inserted at their current\n    position based on a rough estimate.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]\n    \n    # Calculate a simple insertion cost estimate for each unassigned job\n    insertion_costs = {}\n    for job in unassigned_jobs:\n        original_schedule = state.schedule[:]\n        original_makespan = state.objective()\n        \n        # Insert at current (likely invalid) position to get a cost estimate\n        current_idx = 0 if not state.schedule else rng.integers(0, len(state.schedule))\n        \n        state.insert(job, current_idx)\n        new_makespan = compute_makespan(state.schedule) \n        \n        insertion_costs[job] = new_makespan - original_makespan\n        \n        state.remove(job) #Remove it.\n        state.schedule = original_schedule #Restore state\n\n    # Sort unassigned jobs based on insertion cost (lower cost first)\n    sorted_jobs = sorted(unassigned_jobs, key=lambda job: insertion_costs[job])\n    \n    for job in sorted_jobs:\n        state.opt_insert(job)\n    \n    state.unassigned = []\n    return state",
+      "objective": 11489,
+      "gap": null,
+      "runtime": 60.007485151290894,
+      "timestamp": "2025-06-14 12:37:00",
       "feasible": true,
+      "training_instances": [
+        "training_data/j100_m10/j100_m10_1.txt",
+        "training_data/j100_m10/j100_m10_2.txt"
+      ],
+      "training_evaluation": {
+        "total_objective": 11489,
+        "average_objective": 5744.5,
+        "total_runtime": 60.007485151290894,
+        "average_runtime": 30.003742575645447,
+        "instance_results": [
+          {
+            "objective": 5719,
+            "runtime": 30.005378007888794,
+            "data_file": "training_data/j100_m10/j100_m10_1.txt",
+            "iterations": 0
+          },
+          {
+            "objective": 5770,
+            "runtime": 30.0021071434021,
+            "data_file": "training_data/j100_m10/j100_m10_2.txt",
+            "iterations": 0
+          }
+        ],
+        "n_instances": 2
+      },
       "strategy": "e1",
       "generation": 1
     },
     {
-      "algorithm": "Initial PFSP repair operator generated from scratch",
-      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"\n    Repair operator for the Permutation Flow Shop Problem (PFSP) using ALNS.\n\n    Inserts the unassigned jobs back into the solution in a smart way,\n    trying to minimize the makespan.\n\n    Args:\n        state: The current solution.\n        rng: A numpy.random.Generator object for random operations.\n        kwargs: Additional keyword arguments.\n\n    Returns:\n        The modified solution.\n    \"\"\"\n\n    unassigned_jobs = state.unassigned[:]  # Create a copy to avoid modifying the original\n\n    # Iterate through the unassigned jobs and optimally insert each one\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n\n    # Clear the unassigned list in the state\n    state.unassigned = []\n\n    return state",
-      "objective": 5815,
-      "gap": 0.779896013864818,
-      "runtime": 2.8005690574645996,
-      "timestamp": "2025-06-06 19:08:55",
-      "feasible": true
+      "algorithm": "Hybrid algorithm combining ideas from parent operators",
+      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"Repair operator for PFSP using ALNS.\"\"\"\n\n    unassigned_jobs = state.unassigned[:]\n    rng.shuffle(unassigned_jobs)\n\n    for job in unassigned_jobs:\n        state.opt_insert(job)\n        state.unassigned.remove(job)\n    \n    return state",
+      "objective": 11489,
+      "gap": null,
+      "runtime": 60.00383400917053,
+      "timestamp": "2025-06-14 12:38:01",
+      "feasible": true,
+      "training_instances": [
+        "training_data/j100_m10/j100_m10_1.txt",
+        "training_data/j100_m10/j100_m10_2.txt"
+      ],
+      "training_evaluation": {
+        "total_objective": 11489,
+        "average_objective": 5744.5,
+        "total_runtime": 60.00383400917053,
+        "average_runtime": 30.001917004585266,
+        "instance_results": [
+          {
+            "objective": 5719,
+            "runtime": 30.00122618675232,
+            "data_file": "training_data/j100_m10/j100_m10_1.txt",
+            "iterations": 0
+          },
+          {
+            "objective": 5770,
+            "runtime": 30.002607822418213,
+            "data_file": "training_data/j100_m10/j100_m10_2.txt",
+            "iterations": 0
+          }
+        ],
+        "n_instances": 2
+      },
+      "strategy": "e2",
+      "generation": 1
+    },
+    {
+      "algorithm": "Simplified version of: Initial PFSP repair operator generated from scratch",
+      "code": "def llm_repair(state: Solution, rng, **kwargs) -> Solution:\n    \"\"\"Repair operator for PFSP using ALNS.\"\"\"\n\n    for job in state.unassigned:\n        state.opt_insert(job)\n    \n    state.unassigned = []\n    return state",
+      "objective": 11489,
+      "gap": null,
+      "runtime": 60.0085666179657,
+      "timestamp": "2025-06-14 12:40:05",
+      "feasible": true,
+      "training_instances": [
+        "training_data/j100_m10/j100_m10_1.txt",
+        "training_data/j100_m10/j100_m10_2.txt"
+      ],
+      "training_evaluation": {
+        "total_objective": 11489,
+        "average_objective": 5744.5,
+        "total_runtime": 60.0085666179657,
+        "average_runtime": 30.00428330898285,
+        "instance_results": [
+          {
+            "objective": 5719,
+            "runtime": 30.003910779953003,
+            "data_file": "training_data/j100_m10/j100_m10_1.txt",
+            "iterations": 0
+          },
+          {
+            "objective": 5770,
+            "runtime": 30.004655838012695,
+            "data_file": "training_data/j100_m10/j100_m10_2.txt",
+            "iterations": 0
+          }
+        ],
+        "n_instances": 2
+      },
+      "strategy": "m3",
+      "generation": 1
     }
   ]
 }
